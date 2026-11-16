@@ -1,4 +1,4 @@
-{
+﻿{
   "name": "feixiang-classroom-demo",
   "private": true,
   "version": "0.1.0",
@@ -14,7 +14,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "verify": "tsc --noEmit && vitest run",
-    "demo:llm": "tsx scripts/demo-llm.ts"
+    "demo:llm": "tsx scripts/demo-llm.ts",
+    "check:clean": "node scripts/check-clean.mjs"
   },
   "devDependencies": {
     "@testing-library/react": "^16.3.3",

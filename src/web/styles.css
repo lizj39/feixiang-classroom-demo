@@ -865,6 +865,47 @@ code {
   color: var(--muted);
 }
 
+/* ---------- 证据面板：理解结果 ---------- */
+
+.intent-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  font-size: 12.5px;
+}
+
+.intent-line__normalized {
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.intent-facts {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  gap: 4px 10px;
+  margin: 0;
+  font-size: 12px;
+}
+
+.intent-facts dt {
+  color: var(--muted);
+}
+
+.intent-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.score-row__cap {
+  display: block;
+  margin-top: 1px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
 /* ---------- 窄屏降级为单列 ---------- */
 
 @media (max-width: 1180px) {

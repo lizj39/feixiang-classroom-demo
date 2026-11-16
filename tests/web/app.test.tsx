@@ -16,6 +16,8 @@ import {
   buildVerificationReport,
   findScenario,
   type GenerateResponse,
+  type ParsedIntent,
+  type Plan,
   type SkillId,
   type SkillManifest,
   type SkillSlot,
@@ -24,7 +26,7 @@ import {
 import { App } from '../../src/web/App';
 import { setRegistryBug } from '../../src/web/bug-mode';
 import { NODE_RENDERERS } from '../../src/web/render/registry';
-import { S2_PLAN, S3_PLAN, S4_PLAN } from '../fixtures/scenarios';
+import { S1_PLAN, S2_PLAN, S3_PLAN, S4_PLAN } from '../fixtures/scenarios';
 
 const fetchMock = vi.fn();
 
@@ -96,6 +98,7 @@ const SUCCESS_PAYLOAD: GenerateResponse = {
   requestId: 'req_00000000-0000-0000-0000-000000000000',
   receivedAt: '2026-01-01T00:00:00.000Z',
   utterance: '能拖动滑块的一次函数演示',
+  intent: null,
   plan: null,
   courseware: null,
   trace: null,
@@ -382,6 +385,77 @@ describe('故障注入（P7）', () => {
     mockFetch();
     render(<App />);
     expect(screen.queryByTestId('bug-banner')).toBeNull();
+  });
+});
+
+describe('理解结果（P8）', () => {
+  const intent: ParsedIntent = {
+    utterance: '让学生自己调参数看看',
+    matchedTokens: ['画'],
+    capabilities: ['function-plot', 'interactive-slider'],
+    params: { k: -2, b: 5 },
+    parser: 'llm',
+    normalized: '画出斜率 -2、截距 5 的一次函数图像，并提供滑块让学生自行调参',
+  };
+
+  it('显示解析器、标准化复述、两路证据与读出的参数', async () => {
+    mockFetch({ generate: async () => jsonResponse({ ...SUCCESS_PAYLOAD, intent, plan: S2_PLAN }) });
+    render(<App />);
+    typeAndSubmit('让学生自己调参数看看');
+    await screen.findByTestId('intent-parser');
+
+    expect(screen.getByTestId('intent-parser').textContent).toContain('LLM');
+    const block = screen.getByTestId('evidence-intent').textContent ?? '';
+    expect(block).toContain('斜率 -2');
+    expect(block).toContain('interactive-slider');
+    expect(block).toContain('"k":-2');
+  });
+
+  it('降级时把原因摆在明面上', async () => {
+    const degraded: ParsedIntent = {
+      ...intent,
+      parser: 'rule',
+      capabilities: [],
+      degraded: { reason: 'LLM 解析失败，降级到规则版：超过 8000ms 未返回' },
+    };
+    mockFetch({ generate: async () => jsonResponse({ ...SUCCESS_PAYLOAD, intent: degraded, plan: S1_PLAN }) });
+    render(<App />);
+    typeAndSubmit('画个图');
+
+    const banner = await screen.findByTestId('intent-degraded');
+    expect(banner.textContent).toContain('降级');
+    expect(banner.textContent).toContain('8000ms');
+    expect(screen.getByTestId('intent-parser').textContent).toContain('规则');
+  });
+
+  it('证据合计超过 100 分时标出原始分，否则 1.00 看起来像算错了', async () => {
+    const capped: Plan = {
+      type: 'single',
+      utterance: '画一下一次函数的图像',
+      selected: ['function-plot'],
+      scores: [
+        {
+          skill: 'function-plot',
+          score: 1,
+          signals: [
+            { token: '图像', kind: 'primary', points: 50, by: 'lexicon' },
+            { token: '一次函数', kind: 'primary', points: 50, by: 'lexicon' },
+            { token: 'function-plot', kind: 'capability', points: 60, by: 'llm' },
+          ],
+          shadowed: [],
+        },
+      ],
+      reason: '只有 function-plot 达标',
+      questions: [],
+    };
+
+    mockFetch({ generate: async () => jsonResponse({ ...SUCCESS_PAYLOAD, intent, plan: capped }) });
+    render(<App />);
+    typeAndSubmit('画一下一次函数的图像');
+
+    const row = await screen.findByTestId('score-function-plot');
+    expect(row.textContent).toContain('1.00');
+    expect(row.textContent).toContain('原始 160');
   });
 });
 

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 传输层契约：请求 / 响应信封。
  *
  * 为什么单独成文件：plan / ir / trace / verification 四个契约只描述「内容」，
@@ -10,6 +10,7 @@
  */
 
 import type { Courseware } from './ir';
+import type { ParsedIntent } from './intent';
 import type { Plan } from './plan';
 import type { SkillManifest } from './skill';
 import type { Trace } from './trace';
@@ -78,6 +79,11 @@ export interface GenerateResponse {
   readonly receivedAt: string;
   /** 归一化后的需求回声。前端据此确认「服务端读到的就是我输入的」。 */
   readonly utterance: string;
+  /**
+   * 理解层的产物：词表证据、模型能力、参数、降级说明。
+   * 单独返回而不是让前端去 trace 里翻 —— 它是「为什么这么选」的输入，值得一等公民待遇。
+   */
+  readonly intent: ParsedIntent | null;
   readonly plan: Plan | null;
   readonly courseware: Courseware | null;
   readonly trace: Trace | null;

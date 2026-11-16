@@ -12,9 +12,11 @@ import type { RefObject } from 'react';
 import type { BugMode, ParserMode } from '../contracts/index';
 
 import {
+  MAX_SCORE_POINTS,
   MAX_UTTERANCE_LENGTH,
   SCENARIOS,
   shouldGenerate,
+  totalPoints,
   type Plan,
   type SkillManifest,
   type VerificationReport,
@@ -281,6 +283,7 @@ export function EvidencePanel({
 }) {
   const plan = phase.kind === 'success' ? phase.response.plan : null;
   const trace = phase.kind === 'success' ? phase.response.trace : null;
+  const intent = phase.kind === 'success' ? phase.response.intent : null;
   // plan.selected 是三种元组/数组的联合（含空元组），直接 .includes 会被推成 never
   const selectedIds = new Set<string>(plan?.selected ?? []);
 
@@ -290,6 +293,45 @@ export function EvidencePanel({
       <p className="panel__hint">
         这一栏回答「为什么这么选」和「生成得对不对」。所有结论都来自服务端返回的结构化数据，不是界面文案。
       </p>
+
+      <div className="block" data-testid="evidence-intent">
+        <h3 className="panel__subtitle">理解结果（这句话被读成了什么）</h3>
+
+        {intent === null && <p className="panel__hint">还没有请求。</p>}
+
+        {intent !== null && (
+          <>
+            <p className="intent-line">
+              <span className={intent.parser === 'llm' ? 'badge badge--strong' : 'badge'} data-testid="intent-parser">
+                {intent.parser === 'llm' ? 'LLM 解析' : '规则解析'}
+              </span>
+              <span className="intent-line__normalized">{intent.normalized ?? intent.utterance}</span>
+            </p>
+
+            <dl className="intent-facts">
+              <dt>词表证据</dt>
+              <dd>{intent.matchedTokens.join('、') || '（无）'}</dd>
+              <dt>模型能力</dt>
+              <dd>{intent.capabilities.join('、') || '（无）'}</dd>
+              <dt>读出的参数</dt>
+              <dd className="mono">
+                {Object.keys(intent.params).length > 0 ? JSON.stringify(intent.params) : '（无）'}
+              </dd>
+            </dl>
+
+            {intent.degraded !== undefined && (
+              <p className="verify-item__blocked" data-testid="intent-degraded">
+                降级：{intent.degraded.reason}
+              </p>
+            )}
+            {intent.notes?.map((note) => (
+              <p key={note} className="panel__hint">
+                {note}
+              </p>
+            ))}
+          </>
+        )}
+      </div>
 
       <div className="block" data-testid="evidence-scores">
         <h3 className="panel__subtitle">选择理由（每个 Skill 的得分与证据）</h3>
@@ -306,7 +348,17 @@ export function EvidencePanel({
                   className={selectedIds.has(breakdown.skill) ? 'score-row is-selected' : 'score-row'}
                 >
                   <td className="mono score-row__skill">{breakdown.skill}</td>
-                  <td className="score-row__value">{breakdown.score.toFixed(2)}</td>
+                  <td className="score-row__value">
+                    {breakdown.score.toFixed(2)}
+                    {totalPoints(breakdown) > MAX_SCORE_POINTS && (
+                      <span
+                        className="score-row__cap"
+                        title={`证据合计 ${totalPoints(breakdown)} 分，按规则封顶为 ${MAX_SCORE_POINTS} 分`}
+                      >
+                        原始 {totalPoints(breakdown)}
+                      </span>
+                    )}
+                  </td>
                   <td className="score-row__signals">
                     {breakdown.signals.length === 0 && <span className="muted">—</span>}
                     {breakdown.signals.map((signal) => (
@@ -340,6 +392,7 @@ export function EvidencePanel({
           <p className="panel__hint">
             阈值 0.60。灰色删除线表示命中了但被更长的词遮挡（同一含义不重复计分）；
             蓝色标的是 LLM 判定的能力，与词表证据分开显示。
+            多路证据相加超过 100 分时按规则封顶为 1.00（表里会标「原始 N」）。
           </p>
         )}
       </div>

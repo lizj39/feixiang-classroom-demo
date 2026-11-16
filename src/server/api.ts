@@ -181,6 +181,7 @@ export function createApiRouter(): Router {
         requestId,
         receivedAt,
         utterance: checked.utterance,
+        intent,
         plan,
         courseware,
         trace: recorder.toTrace(requestId),

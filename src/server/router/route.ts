@@ -56,6 +56,9 @@ export async function route(utterance: string, deps: RouteDeps): Promise<RouteOu
       normalized: intent.utterance,
       matchedTokens: intent.matchedTokens,
       capabilities: intent.capabilities,
+      params: intent.params,
+      degraded: intent.degraded?.reason ?? null,
+      notes: intent.notes ?? [],
     },
     decision: `用 ${intent.parser} 解析器理解需求`,
     reason:
