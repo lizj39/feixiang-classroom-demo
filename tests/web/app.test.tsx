@@ -314,6 +314,9 @@ describe('验证报告（P6）', () => {
     expect(summary.textContent).toContain('L2');
     expect(summary.textContent).toContain('失败');
 
+    // 顶栏徽标让人不用滚到右栏底部就知道结果
+    expect(screen.getByTestId('header-verification').textContent).toContain('L2 失败');
+
     const failed = screen.getByTestId('verify-L2.ir.slider-bound');
     expect(failed.textContent).toContain('fail');
     expect(failed.textContent).toContain('期望');

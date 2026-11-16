@@ -71,20 +71,59 @@ export function checkDomStructure(courseware: Courseware, root: ParentNode): Ver
   ];
 }
 
-/** 让 React 看到值的变化：必须走原生 setter + 派发 input 事件。 */
+/**
+ * 让 React 看到值的变化：必须走原生 setter + 派发事件。
+ *
+ * 两个事件都要派发：range 的 onChange 在 React 里由 `change` 事件驱动，
+ * 而某些环境（含 jsdom）只认 `input`。只发一个就会出现「测试过了、真机上不过」
+ * 这种最恶心的情况 —— 第一次实现就踩了这个坑（浏览器里 L4 永远红）。
+ */
 function setNativeValue(input: HTMLInputElement, value: number): void {
   const descriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
   descriptor?.set?.call(input, String(value));
   input.dispatchEvent(new Event('input', { bubbles: true }));
+  input.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
-function nextTick(): Promise<void> {
+function delay(ms = 0): Promise<void> {
   return new Promise((resolve) => {
-    setTimeout(resolve, 0);
+    setTimeout(resolve, ms);
   });
 }
 
-export async function checkBehavior(courseware: Courseware, root: ParentNode): Promise<VerificationCheck[]> {
+/** 等 DOM 真的更新，最多等约 200ms —— 不赌「一帧就够」，慢机器上也稳。 */
+async function waitForPathChange(read: () => string | null, before: string | null): Promise<string | null> {
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    await delay(16);
+    const current = read();
+    if (current !== before) return current;
+  }
+  return read();
+}
+
+/**
+ * 串行队列：行为验证会临时改动 DOM，绝不允许多个实例并发跑。
+ *
+ * 踩过的坑：React 19 的 StrictMode 在开发模式下会把 effect 跑两遍。
+ * 两次并发执行时，B 读到的「原值」是 A 刚设进去的新值，
+ * 于是两者互相覆盖、都判失败 —— 表现就是「测试全绿，浏览器里永远红」。
+ */
+let chain: Promise<unknown> = Promise.resolve();
+
+function enqueue<T>(task: () => Promise<T>): Promise<T> {
+  const queued = chain.then(task, task);
+  chain = queued.then(
+    () => undefined,
+    () => undefined,
+  );
+  return queued;
+}
+
+export function checkBehavior(courseware: Courseware, root: ParentNode): Promise<VerificationCheck[]> {
+  return enqueue(() => runBehavior(courseware, root));
+}
+
+async function runBehavior(courseware: Courseware, root: ParentNode): Promise<VerificationCheck[]> {
   const sliders = slidersOf(courseware);
 
   if (sliders.length === 0) {
@@ -128,17 +167,28 @@ export async function checkBehavior(courseware: Courseware, root: ParentNode): P
   }
 
   const before = path.getAttribute('d');
-
-  setNativeValue(input, next);
-  await nextTick();
-  const after = path.getAttribute('d');
-
-  // 立刻复原，避免用户看到滑块被系统偷偷推了一下
-  setNativeValue(input, original);
-  await nextTick();
-
   const expected = linePath({ ...plot.params, [slider.bindTo.param]: next }, PLOT_VIEW);
+
+  let after: string | null = before;
+  let settledValue = String(original);
+  try {
+    setNativeValue(input, next);
+    after = await waitForPathChange(() => path.getAttribute('d'), before);
+    settledValue = input.value;
+  } finally {
+    // 无论成败都复原，绝不把用户看得见的滑块留在系统推过去的位置
+    setNativeValue(input, original);
+    await delay(0);
+  }
+
   const updated = after !== before;
+
+  // 失败原因要能区分两种完全不同的病灶，否则定位还是靠猜
+  const failureReason = updated
+    ? undefined
+    : settledValue !== String(next)
+      ? `滑块值被组件重置回 ${settledValue}：事件没有被接受（事件类型或受控方式有问题）`
+      : `滑块值已变成 ${settledValue}，但图像没有重算：绑定没有接到渲染`;
 
   return [
     check(
@@ -150,7 +200,7 @@ export async function checkBehavior(courseware: Courseware, root: ParentNode): P
       {
         expected,
         actual: after,
-        ...(updated ? {} : { blockedReason: '拖动后图像没有变化，说明滑块没有接上绑定' }),
+        ...(failureReason === undefined ? {} : { blockedReason: failureReason }),
       },
     ),
   ];

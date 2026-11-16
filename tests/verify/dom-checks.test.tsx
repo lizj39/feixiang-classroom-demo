@@ -69,6 +69,22 @@ describe('L4 行为', () => {
     expect(input.value).toBe('2');
   });
 
+  it('并发的两次调用不会互相踩（StrictMode 会把 effect 跑两遍）', async () => {
+    render(<CoursewareView courseware={S2_COURSEWARE} />);
+
+    const [first, second] = await Promise.all([
+      checkBehavior(S2_COURSEWARE, document.body),
+      checkBehavior(S2_COURSEWARE, document.body),
+    ]);
+
+    expect(first[0]?.status).toBe('pass');
+    expect(second[0]?.status).toBe('pass');
+
+    // 两次跑完，滑块必须回到原位
+    const input = document.querySelector('input[type="range"]') as HTMLInputElement;
+    expect(input.value).toBe('2');
+  });
+
   it('控件存在但拖动不更新 → 失败（这正是题面里最难发现的那种故障）', async () => {
     const root = document.createElement('div');
     root.innerHTML = [
@@ -79,7 +95,9 @@ describe('L4 行为', () => {
     const checks = await checkBehavior(S2_COURSEWARE, root);
     const result = checks[0];
     expect(result?.status).toBe('fail');
-    expect(result?.blockedReason).toContain('没有变化');
+    // 区分病灶：值变了但图没重算（这里就是这种情况）
+    expect(result?.blockedReason).toContain('图像没有重算');
+    expect(result?.expected).not.toBe(result?.actual);
   });
 
   it('没有滑块的课件 → skipped 而不是 pass', async () => {

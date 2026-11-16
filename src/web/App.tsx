@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 页面骨架：标题条 + 三栏。
  *
  * 三栏是定下来的信息架构，后续阶段只往里面填内容，不再改布局：
@@ -76,7 +76,26 @@ export function App({ bugMode = null }: { readonly bugMode?: BugMode | null }) {
           <span className="badge" data-testid="contract-version">
             契约 v{CONTRACT_VERSION}
           </span>
-          <span className={busy ? 'badge badge--busy' : 'badge'}>阶段 6 / 8</span>
+          {verification !== null && (
+            <span
+              className={
+                verification.overall === 'fail'
+                  ? 'badge badge--warn'
+                  : verification.pendingLayers.length > 0
+                    ? 'badge'
+                    : 'badge badge--ok'
+              }
+              data-testid="header-verification"
+              title={verification.summary}
+            >
+              {verification.overall === 'fail'
+                ? `✗ ${verification.firstFailedLayer ?? ''} 失败`
+                : verification.pendingLayers.length > 0
+                  ? `… ${verification.pendingLayers.join(' / ')} 待执行`
+                  : '✓ 四层验证通过'}
+            </span>
+          )}
+          <span className={busy ? 'badge badge--busy' : 'badge'}>阶段 7 / 8</span>
         </div>
       </header>
 
