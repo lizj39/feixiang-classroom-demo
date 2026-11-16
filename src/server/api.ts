@@ -17,14 +17,17 @@ import {
   API_VERSION,
   BUG_MODES,
   CONTRACT_VERSION,
+  PARSER_MODES,
   buildVerificationReport,
   isBugMode,
+  isParserMode,
   readUtterance,
   type GenerateResponse,
   type SkillsResponse,
 } from '../contracts/index';
 import { composeCourseware } from './composer/compose';
-import { createRuleIntentParser } from './intent/rule-parser';
+import { readLlmConfig } from './intent/llm/client';
+import { createParserFactory } from './intent/select';
 
 import { route } from './router/route';
 import { getSkillRegistry } from './skills/registry';
@@ -64,21 +67,38 @@ export function createApiRouter(): Router {
     // 注册表按需创建：万一 manifest 有错，这里会抛 SkillRegistryError，
     // 由 app.ts 的错误中间件转成 500 信封，而不是启动时整个进程挂掉
     const registry = getSkillRegistry();
+    const llm = readLlmConfig(process.env);
     const payload: SkillsResponse = {
       apiVersion: API_VERSION,
       count: registry.size,
       skills: registry.all(),
+      llm: { configured: llm.enabled, model: llm.enabled ? llm.model : null },
     };
     res.json(payload);
   });
 
   router.post('/generate', async (req, res, next) => {
-    const body = req.body as { utterance?: unknown; flags?: { bug?: unknown } } | undefined;
+    const body = req.body as {
+      utterance?: unknown;
+      flags?: { bug?: unknown; parser?: unknown };
+    } | undefined;
     const checked = readUtterance(body?.utterance);
 
     if (!checked.ok) {
       res.status(400).json({
         error: { code: checked.code, message: checked.message, field: 'utterance' },
+      });
+      return;
+    }
+
+    const rawParser = body?.flags?.parser;
+    if (rawParser !== undefined && !isParserMode(rawParser)) {
+      res.status(400).json({
+        error: {
+          code: 'BAD_FLAG',
+          message: `未知的理解方式：${String(rawParser)}（可选：${PARSER_MODES.join(' / ')}）`,
+          field: 'flags.parser',
+        },
       });
       return;
     }
@@ -104,9 +124,13 @@ export function createApiRouter(): Router {
       const registry = getSkillRegistry();
       const recorder = createTraceRecorder();
 
-      // 理解层目前只有规则版；P8 换成 LLM 版时，这一行之外没有任何改动
-      const parser = createRuleIntentParser(registry);
-      const { plan, intent } = await route(checked.utterance, { registry, parser, emit: recorder.emit });
+      // 理解方式：rule / llm / 缺省（auto）。没配 key 时自动降级，不影响演示
+      const selection = createParserFactory({ registry, config: readLlmConfig(process.env) })(rawParser);
+      const { plan, intent } = await route(checked.utterance, {
+        registry,
+        parser: selection.parser,
+        emit: recorder.emit,
+      });
       const courseware = composeCourseware({
         plan,
         registry,

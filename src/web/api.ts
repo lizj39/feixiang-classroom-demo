@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 前端唯一的网络出口。
  *
  * 把「HTTP 细节」和「错误信封」收敛在一个函数里，组件只处理 Phase。
@@ -6,7 +6,7 @@
  * 而是转成带 code 的 ApiRequestError —— 界面上永远能显示一个有意义的错误码。
  */
 
-import type { ApiErrorPayload, BugMode, GenerateResponse, SkillManifest, SkillsResponse } from '../contracts/index';
+import type { ApiErrorPayload, BugMode, GenerateResponse, ParserMode, SkillsResponse } from '../contracts/index';
 
 export class ApiRequestError extends Error {
   readonly code: string;
@@ -18,10 +18,25 @@ export class ApiRequestError extends Error {
   }
 }
 
-export async function requestGenerate(utterance: string, bug?: BugMode | null): Promise<GenerateResponse> {
+export interface GenerateOptions {
+  readonly bug?: BugMode | null;
+  readonly parser?: ParserMode | null;
+}
+
+export async function requestGenerate(
+  utterance: string,
+  options: GenerateOptions = {},
+): Promise<GenerateResponse> {
   // 只有服务端侧的两个故障上送；渲染器缺失是纯前端问题
-  const requestBody =
-    bug === 'drop-node' || bug === 'break-binding' ? { utterance, flags: { bug } } : { utterance };
+  const serverBug = options.bug === 'drop-node' || options.bug === 'break-binding' ? options.bug : undefined;
+  const parser = options.parser ?? undefined;
+
+  const flags = {
+    ...(serverBug === undefined ? {} : { bug: serverBug }),
+    ...(parser === undefined ? {} : { parser }),
+  };
+
+  const requestBody = Object.keys(flags).length > 0 ? { utterance, flags } : { utterance };
 
   const response = await fetch('/api/generate', {
     method: 'POST',
@@ -48,11 +63,10 @@ export async function requestGenerate(utterance: string, bug?: BugMode | null): 
  * 失败时抛错由调用方决定怎么显示 —— 这块信息是「解释性」的，
  * 拿不到不应该阻塞主流程（生成课件仍然可用）。
  */
-export async function requestSkills(): Promise<readonly SkillManifest[]> {
+export async function requestSkills(): Promise<SkillsResponse> {
   const response = await fetch('/api/skills');
   if (!response.ok) {
     throw new ApiRequestError('INTERNAL', `加载 Skill 清单失败（HTTP ${response.status}）`);
   }
-  const payload = (await response.json()) as SkillsResponse;
-  return payload.skills;
+  return (await response.json()) as SkillsResponse;
 }

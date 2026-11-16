@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 单进程入口：一个 Express 端口同时提供页面与 API。
  *
  *   npm run dev    → Vite 以 middlewareMode 挂在 Express 后面：HMR 正常、端口只有一个、
@@ -12,6 +12,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { createApiApp, createApp } from './app';
+import { loadDotEnv } from './env';
 
 // 显式 --production 参数优先：Windows 下 `NODE_ENV=production npm start` 这种写法不成立，
 // 用参数就不用引入 cross-env 之类只为跨平台服务的依赖
@@ -24,6 +25,9 @@ const webRoot = path.join(projectRoot, 'src', 'web');
 const webDist = path.join(projectRoot, 'dist', 'web');
 
 async function main(): Promise<void> {
+  // 先读 .env：LLM 是否启用取决于 LLM_API_KEY 是否存在（缺失就不启用，功能不受影响）
+  loadDotEnv();
+
   let app = isProduction ? createApp({ staticDir: webDist }) : createApiApp();
 
   if (!isProduction) {

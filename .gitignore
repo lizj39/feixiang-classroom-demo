@@ -1,4 +1,4 @@
-# 依赖与产物
+﻿# 依赖与产物
 node_modules/
 .npm-cache/
 dist/
@@ -7,6 +7,7 @@ coverage/
 # 环境与本地文件
 .env
 .env.*
+!.env.example
 *.log
 .DS_Store
 Thumbs.db

@@ -36,10 +36,20 @@ export const BUG_MODES = [
 
 export type BugMode = (typeof BUG_MODES)[number];
 
+/** 理解方式。缺省 = auto（配了 key 就用 LLM，没配用规则）。 */
+export const PARSER_MODES = ['rule', 'llm'] as const;
+
+export type ParserMode = (typeof PARSER_MODES)[number];
+
+export function isParserMode(value: unknown): value is ParserMode {
+  return typeof value === 'string' && (PARSER_MODES as readonly string[]).includes(value);
+}
+
 export interface GenerateRequest {
   readonly utterance: string;
   readonly flags?: {
     readonly bug?: BugMode;
+    readonly parser?: ParserMode;
   };
 }
 
@@ -86,6 +96,11 @@ export interface SkillsResponse {
   readonly apiVersion: typeof API_VERSION;
   readonly count: number;
   readonly skills: readonly SkillManifest[];
+  /** 理解层的能力状态：没配 key 时前端把「LLM 版」开关标成不可用。 */
+  readonly llm: {
+    readonly configured: boolean;
+    readonly model: string | null;
+  };
 }
 
 /**

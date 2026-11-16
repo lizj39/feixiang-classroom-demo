@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 页面骨架：标题条 + 三栏。
  *
  * 三栏是定下来的信息架构，后续阶段只往里面填内容，不再改布局：
@@ -11,18 +11,24 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-import { CONTRACT_VERSION, type BugMode, type SkillManifest } from '../contracts/index';
-import { readBugMode, setRegistryBug } from './bug-mode';
+import { CONTRACT_VERSION, type BugMode, type ParserMode, type SkillManifest } from '../contracts/index';
 import { ApiRequestError, requestGenerate, requestSkills } from './api';
+import { readBugMode, setRegistryBug } from './bug-mode';
 import { EvidencePanel, PreviewPanel, RequestPanel } from './panels';
 import { isBusy, type Phase } from './phase';
 import { useVerification } from './verify/useVerification';
+
+export interface LlmStatus {
+  readonly configured: boolean;
+  readonly model: string | null;
+}
 
 export function App({ initialBugMode }: { readonly initialBugMode?: BugMode | null } = {}) {
   const [utterance, setUtterance] = useState('');
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' });
   // null = 加载中；[] = 加载失败（不阻塞生成流程，只是这块证据缺失）
   const [skills, setSkills] = useState<readonly SkillManifest[] | null>(null);
+  const [llm, setLlm] = useState<LlmStatus | null>(null);
 
   const coursewareRef = useRef<HTMLDivElement | null>(null);
 
@@ -30,6 +36,9 @@ export function App({ initialBugMode }: { readonly initialBugMode?: BugMode | nu
   const [bugMode, setBugMode] = useState<BugMode | null>(
     () => initialBugMode ?? readBugMode(window.location.search),
   );
+
+  // 理解方式：null = auto（配了 key 用 LLM，没配用规则）
+  const [parserMode, setParserMode] = useState<ParserMode | null>(null);
 
   const busy = isBusy(phase);
   const courseware = phase.kind === 'success' ? phase.response.courseware : null;
@@ -39,11 +48,15 @@ export function App({ initialBugMode }: { readonly initialBugMode?: BugMode | nu
   useEffect(() => {
     let cancelled = false;
     requestSkills()
-      .then((list) => {
-        if (!cancelled) setSkills(list);
+      .then((payload) => {
+        if (cancelled) return;
+        setSkills(payload.skills);
+        setLlm(payload.llm);
       })
       .catch(() => {
-        if (!cancelled) setSkills([]);
+        if (cancelled) return;
+        setSkills([]);
+        setLlm({ configured: false, model: null });
       });
     return () => {
       cancelled = true;
@@ -64,6 +77,11 @@ export function App({ initialBugMode }: { readonly initialBugMode?: BugMode | nu
     setPhase({ kind: 'idle' });
   };
 
+  const changeParserMode = (next: ParserMode | null): void => {
+    setParserMode(next);
+    setPhase({ kind: 'idle' });
+  };
+
   const submit = async () => {
     const trimmed = utterance.trim();
 
@@ -74,7 +92,7 @@ export function App({ initialBugMode }: { readonly initialBugMode?: BugMode | nu
 
     setPhase({ kind: 'loading', utterance: trimmed });
     try {
-      const response = await requestGenerate(trimmed, bugMode);
+      const response = await requestGenerate(trimmed, { bug: bugMode, parser: parserMode });
       setPhase({ kind: 'success', response });
     } catch (error) {
       if (error instanceof ApiRequestError) {
@@ -115,16 +133,16 @@ export function App({ initialBugMode }: { readonly initialBugMode?: BugMode | nu
                   : '✓ 四层验证通过'}
             </span>
           )}
-          <span className={busy ? 'badge badge--busy' : 'badge'}>阶段 7 / 8</span>
+          <span className={busy ? 'badge badge--busy' : 'badge'}>阶段 8 / 8</span>
         </div>
       </header>
 
       {bugMode !== null && (
         <div className="bug-banner" data-testid="bug-banner">
-          <strong>故障注入已开启：<code>{bugMode}</code></strong>
-          <span>
-            这是演示开关，用来稳定复现「日志说调用了、页面却没有」。看右侧验证报告停在哪一层。
-          </span>
+          <strong>
+            故障注入已开启：<code>{bugMode}</code>
+          </strong>
+          <span>这是演示开关，用来稳定复现「日志说调用了、页面却没有」。看右侧验证报告停在哪一层。</span>
         </div>
       )}
 
@@ -134,6 +152,10 @@ export function App({ initialBugMode }: { readonly initialBugMode?: BugMode | nu
           disabled={busy}
           bugMode={bugMode}
           onBugModeChange={changeBugMode}
+          parserMode={parserMode}
+          onParserModeChange={changeParserMode}
+          llmConfigured={llm?.configured ?? false}
+          llmModel={llm?.model ?? null}
           onChange={setUtterance}
           onSubmit={() => {
             void submit();

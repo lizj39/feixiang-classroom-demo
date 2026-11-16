@@ -13,7 +13,8 @@
     "start": "tsx src/server/main.ts --production",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "verify": "tsc --noEmit && vitest run"
+    "verify": "tsc --noEmit && vitest run",
+    "demo:llm": "tsx scripts/demo-llm.ts"
   },
   "devDependencies": {
     "@testing-library/react": "^16.3.3",

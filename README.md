@@ -1,7 +1,7 @@
 ﻿# 飞象老师 · 一句话生成课堂互动课件
 
 > 全栈实习生作业 Demo
-> **状态：故障可复现、可定位（阶段 7 / 8 完成），下一步接 LLM 理解层**
+> **状态：全部完成（阶段 0–8）。不配 API Key 也能完整演示**
 
 老师输入一句话需求，系统选择合适的教学 Skill（单个或组合），生成**可操作的课件**，并对「为什么这么选」和「生成得对不对」给出**可核对的证据**。
 
@@ -30,7 +30,7 @@ curl http://localhost:5173/api/health
 
 | 命令 | 作用 |
 |---|---|
-| `npm run verify` | `tsc --noEmit && vitest run`，当前 **245 个测试** |
+| `npm run verify` | `tsc --noEmit && vitest run`，当前 **272 个测试** |
 | `npm run build` | 构建前端到 `dist/web` |
 | `npm start` | 以生产模式托管 `dist/web`（需先 build） |
 
@@ -46,7 +46,8 @@ curl http://localhost:5173/api/health
 | 5 | 组合编排 + 参数抽取与绑定 + composer 层 trace | ✅ |
 | 6 | 四层验证（L1/L2 服务端 + L3/L4 浏览器）+ 报告合并 | ✅ |
 | 7 | 三种故障注入（停在 L1 / L2 / L3）+ 定位脚本 | ✅ |
-| 8 | README 全量、演示脚本、交付检查 | ⬜ |
+| 8 | LLM 理解层（可选）+ 降级 + 页面开关 | ✅ |
+| 9 | 交付检查：README 全量、清洁检查、5 分钟彩排 | ⬜ |
 
 ## 目录
 
@@ -81,7 +82,43 @@ docs/            SPEC / CONTRACTS / 任务拆分 / 需求原文
 - [CONTRACTS.md](docs/CONTRACTS.md) —— 五个契约的字段约束与正反例
 - [任务拆分.md](docs/任务拆分.md) —— 30 个小任务、各自的验收判据与客观性分级
 - [故障演示.md](docs/故障演示.md) —— 90 秒定位脚本：三种故障各自停在哪一层
+- [`.env.example`](.env.example) —— LLM 配置样例（key 留空）
 - [需求原文.md](docs/需求原文.md)
+
+## 接 LLM（可选，不配也能跑）
+
+理解层有两种实现，**只影响「读需求」，不影响打分与裁决**：
+
+| 模式 | 怎么工作 | 需要 key |
+|---|---|---|
+| 规则版 | 词表匹配 + 正则抽参数 | 否 |
+| LLM 版 | 模型读懂能力与参数，输出仍走同一套打分 | 是 |
+
+页面左栏有「理解方式」开关：自动 / 规则版 / LLM 版。没配 key 时「LLM 版」按钮不可点，
+选了也会降级并在 trace 里写明原因。
+
+```bash
+cp .env.example .env     # 填入 LLM_API_KEY
+npm run dev
+```
+
+```
+LLM_BASE_URL=https://api.deepseek.com
+LLM_MODEL=deepseek-flash
+LLM_API_KEY=sk-...
+```
+
+真实调用验证（不进 `npm test`，约 3 次请求）：
+
+```bash
+npm run demo:llm
+```
+
+**三条不可动摇的约束**：
+
+1. LLM 只产出 `capabilities` / `params` / `normalized`，**不产分数、不决定是否生成**
+2. 超时 / 401 / 非 JSON / 未知能力 → 降级到规则版，`degraded.reason` 写进 trace
+3. `npm test` 全程离线，用 fake client 验证；真实调用只在上面的手动脚本里
 
 ## 故障演示（题面第 2 问）
 

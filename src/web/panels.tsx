@@ -9,7 +9,7 @@
 
 import type { RefObject } from 'react';
 
-import type { BugMode } from '../contracts/index';
+import type { BugMode, ParserMode } from '../contracts/index';
 
 import {
   MAX_UTTERANCE_LENGTH,
@@ -27,9 +27,20 @@ interface RequestPanelProps {
   readonly disabled: boolean;
   readonly bugMode: BugMode | null;
   readonly onBugModeChange: (mode: BugMode | null) => void;
+  readonly parserMode: ParserMode | null;
+  readonly onParserModeChange: (mode: ParserMode | null) => void;
+  readonly llmConfigured: boolean;
+  readonly llmModel: string | null;
   readonly onChange: (value: string) => void;
   readonly onSubmit: () => void;
 }
+
+/** 理解方式：默认自动；显式选 LLM 时可以对比「同一句话，两种理解」的差别。 */
+const PARSER_OPTIONS: ReadonlyArray<{ value: ParserMode | null; label: string; hint: string }> = [
+  { value: null, label: '自动', hint: '配了 key 用 LLM，没配用规则' },
+  { value: 'rule', label: '规则版', hint: '词表 + 正则，离线确定' },
+  { value: 'llm', label: 'LLM 版', hint: '模型读能力与参数' },
+];
 
 /** 故障演示选项。做成页面按钮而不是让人改 URL —— 演示时少一次手抖的机会。 */
 const BUG_OPTIONS: ReadonlyArray<{ value: BugMode | null; hint: string }> = [
@@ -39,7 +50,18 @@ const BUG_OPTIONS: ReadonlyArray<{ value: BugMode | null; hint: string }> = [
   { value: 'unregistered-renderer', hint: '渲染器缺项 → L3' },
 ];
 
-export function RequestPanel({ utterance, disabled, bugMode, onBugModeChange, onChange, onSubmit }: RequestPanelProps) {
+export function RequestPanel({
+  utterance,
+  disabled,
+  bugMode,
+  onBugModeChange,
+  parserMode,
+  onParserModeChange,
+  llmConfigured,
+  llmModel,
+  onChange,
+  onSubmit,
+}: RequestPanelProps) {
   const length = utterance.trim().length;
 
   return (
@@ -64,6 +86,36 @@ export function RequestPanel({ utterance, disabled, bugMode, onBugModeChange, on
         <button className="button" type="button" data-testid="generate-button" onClick={onSubmit} disabled={disabled}>
           {disabled ? '生成中…' : '生成课件'}
         </button>
+      </div>
+
+      <div className="scenarios">
+        <h3 className="panel__subtitle">
+          理解方式
+          {llmConfigured && llmModel !== null && <span className="panel__subtitle-note"> 已配置 {llmModel}</span>}
+        </h3>
+        <div className="scenario-list scenario-list--row">
+          {PARSER_OPTIONS.map((option) => {
+            const unavailable = option.value === 'llm' && !llmConfigured;
+            return (
+              <button
+                key={option.value ?? 'auto'}
+                type="button"
+                className={parserMode === option.value ? 'chip chip--active' : 'chip'}
+                data-testid={`parser-${option.value ?? 'auto'}`}
+                onClick={() => onParserModeChange(option.value)}
+                disabled={disabled || unavailable}
+                title={unavailable ? '未配置 LLM_API_KEY，只能使用规则版' : option.hint}
+              >
+                <span className="chip__label">{option.label}</span>
+              </button>
+            );
+          })}
+        </div>
+        <p className="panel__hint">
+          {llmConfigured
+            ? 'LLM 只做理解（读能力与参数），打分与裁决仍由规则完成。'
+            : '未配置 LLM_API_KEY：自动与 LLM 版都会降级到规则版，功能不受影响。'}
+        </p>
       </div>
 
       <div className="scenarios">

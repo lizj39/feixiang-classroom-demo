@@ -1,6 +1,6 @@
-# CONTRACTS
+﻿# CONTRACTS
 
-> 契约版本 `0.4.0`。代码：`src/contracts/`。
+> 契约版本 `0.5.0`。代码：`src/contracts/`。
 > 规则：**实现依赖契约，契约不依赖实现**。任何一方绕开契约（例如在渲染器里 if 判断 SkillId）都算违规。
 
 五个契约，各自回答一个问题：
@@ -237,6 +237,7 @@ interface ParsedIntent {
   parser: 'rule' | 'llm';
   normalized?: string;            // LLM 的标准化复述，仅展示
   degraded?: { reason: string };  // LLM 失败降级的原因
+  notes?: readonly string[];      // 非致命提示（如未知能力被忽略）
 }
 ```
 
@@ -263,6 +264,9 @@ Composer 用它覆盖默认值。抽不到就是空对象 —— **由 Composer 
    LLM 判定的能力在原文里可能没有对应的词，冒充分数会让「可解释」变成「看起来可解释」。
 3. **降级必须有痕迹。** LLM 超时 / 返回非 JSON / 给出未知能力 → 回到规则版，并在
    `degraded.reason` 里写明，trace 上能看到「这次没有模型参与」。
+
+补充：**部分脏输出不算降级**。例如模型给了一个未注册的能力，只丢那一个，写进 `notes`，
+其余照用并保持 `parser: 'llm'` —— 一个错标签不该让整次理解作废。
 
 分值（整数百分制，`score = min(Σpoints, 100)/100`）：
 

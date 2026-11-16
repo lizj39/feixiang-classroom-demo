@@ -35,6 +35,8 @@ export interface ParsedIntent {
   readonly normalized?: string;
   /** LLM 失败后降级到规则版时填这里，让 trace 能解释「为什么这次没有模型参与」。 */
   readonly degraded?: { readonly reason: string };
+  /** 非致命提示（例如模型给了未注册的能力被忽略）。不改变结论，只解释过程。 */
+  readonly notes?: readonly string[];
 }
 
 export interface IntentParser {
