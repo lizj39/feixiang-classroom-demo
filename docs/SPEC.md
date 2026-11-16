@@ -1,6 +1,6 @@
 ﻿# SPEC
 
-> 版本：0.1（阶段 0 产出）
+> 版本：0.1
 > 对应契约版本：`CONTRACT_VERSION = 0.5.0`
 > 状态：**规格已定稿，实现未开始**。本文件之后只允许通过「变更记录」修改。
 
@@ -28,7 +28,7 @@
 - 4 个 Skill：`function-plot`、`interactive-slider`、`exercise-choice`、`exercise-input`
 - 4 条路由分支：单 Skill / 组合 / 冲突降级 / 无匹配
 - 4 层验证 + 分层 trace + 证据面板
-- 2 个可复现故障版本（用于演示定位与修复）
+- 3 种可复现的故障注入（用于演练定位与修复流程）
 
 **不做（Non-goals，README 会原样列出）**
 
@@ -81,7 +81,7 @@ manifest 在服务端注册，前端只负责渲染 —— 新增一个 Skill �
 | 字段 | 约束 |
 |---|---|
 | `utterance` | 必填，折叠空白后长度 1–200，超界返回 400 |
-| `flags.bug` | 故障注入（演示用）：`drop-node` / `break-binding` / `unregistered-renderer`，默认缺省；非法值返回 400 `BAD_FLAG` |
+| `flags.bug` | 故障注入（演练用）：`drop-node` / `break-binding` / `unregistered-renderer`，默认缺省；非法值返回 400 `BAD_FLAG` |
 | `flags.parser` | 理解方式：`rule` / `llm`，缺省 = auto（配了 `LLM_API_KEY` 用 LLM，否则规则）；非法值返回 400 `BAD_FLAG` |
 
 响应 200
@@ -101,8 +101,8 @@ manifest 在服务端注册，前端只负责渲染 —— 新增一个 Skill �
 
 - `courseware` 为 `null` 当且仅当 `shouldGenerate(plan) === false`
 - L3/L4 只能由浏览器验证（DOM 与行为），前端完成后再与 L1/L2 合并成最终报告
-- **阶段 1 的临时约定**：`plan` / `courseware` / `trace` / `verification` 一律为 `null`，
-  由 `tests/server/generate.test.ts` 守着。P3 起逐个填充，信封结构不变
+- **尚未产出的字段**：`plan` / `courseware` / `trace` / `verification` 在接入对应层之前为 `null`，
+  由 `tests/server/generate.test.ts` 守着。接入后逐个填充，信封结构不变
 
 错误码（封闭集合，前端按 `code` 分支而不是匹配文案）
 
@@ -152,7 +152,7 @@ LLM 失败时降级回规则版，并在 `degraded.reason` 里留下痕迹。
 2. 超出 ±100 的值让**整条公式作废**并写进 trace（只接受一半会画出半懂不懂的图）
 3. 没有 `+b` 时截距就是 0，不能落到默认的 `b=1` 上 —— 那会画出一条错的线
 
-#### LLM 版解析器（阶段 8）
+#### LLM 版解析器
 
 OpenAI 兼容协议，默认 `https://api.deepseek.com` + `deepseek-flash`。
 输入是「封闭能力清单 + 老师原话」，输出被约束成固定 JSON：
@@ -226,7 +226,7 @@ OpenAI 兼容协议，默认 `https://api.deepseek.com` + `deepseek-flash`。
 ### 6.3 分层执行语义
 
 - **分工是硬的**：L1/L2 的输入（plan、IR）只在服务端，L3/L4 的输入（DOM、拖动行为）只在浏览器。
-  强扭在一起只能靠「服务端假装知道 DOM」，那正是题面第 2 问里被骗的做法
+  强扭在一起只能靠「服务端假装知道 DOM」，那样的验证不成立
 - 服务端返回的报告里，L3/L4 标 `skipped` 并写明「需要浏览器执行」，同时记进 `pendingLayers`
 - 浏览器拿到报告后补完 L3/L4，用**同一个** `buildVerificationReport` 重新汇总 ——
   避免两边对「哪些层算通过」的判定漂移
@@ -243,7 +243,7 @@ L4 不是比对「path 变了没有」，而是比对「拖完之后 path 是否
 这意味着「画错了」不会被 L4 抓到（两边一起错），但「没接上」一定会被抓到。
 这个边界是有意接受的：要抓画错，靠的是 `tests/web/plot-math.test.ts` 里的像素断言。
 
-### 6.1 IR 出站校验（阶段 4 已实现）
+### 6.1 IR 出站校验
 
 Composer 产出 IR 后、返回前端前必须先过一遍校验（`src/server/ir/validate.ts`），
 坏 IR 宁可 500，也不交给前端画出一个「看起来对」的东西：
@@ -258,7 +258,7 @@ Composer 产出 IR 后、返回前端前必须先过一遍校验（`src/server/i
 | `plot-params-finite` / `plot-domain` | NaN/Infinity 或反向定义域 |
 | `exercise-mode-coherent` / `exercise-answer` | 选择题没选项、填空题带选项、答案不在选项中 |
 
-阶段 6 会把这些结果映射成 `L2.ir.*` 的 ruleId 并写进验证报告；本阶段的 rule 名是内部标识。
+这些结果会被映射成 `L2.ir.*` 的 ruleId 写进验证报告；校验器内部用的是下表的 rule 名。
 
 ### 6.2 渲染约定
 
@@ -319,7 +319,7 @@ docs/            SPEC（本文件）、CONTRACTS、任务拆分
 | 版本 | 变更 |
 |---|---|
 | 0.1 | 定稿：4 Skill、单阈值 0.60、Plan 四形态、四层验证、L1–L4 ruleId 命名 |
-| 0.2 | 补充传输层信封（`apiVersion` / `requestId` / `receivedAt` / 回声）、错误码表、阶段 1 的 null 约定 |
+| 0.2 | 补充传输层信封（`apiVersion` / `requestId` / `receivedAt` / 回声）、错误码表、null 约定 |
 | 0.3 | 补充理解层（IntentParser / 归一化 / 能力标签 60 分 / 降级留痕） |
 | 0.4 | 补充 IR 出站校验规则表与渲染约定（原生 range、path 由参数计算、等比视野、注册表缺项占位） |
 | 0.5 | 补充参数抽取规则与来源标注（来自描述 / 默认值）、超限整条作废 |

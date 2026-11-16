@@ -5,8 +5,8 @@
  * 没有一个对象把它们串起来。前后端共用这个信封，接口改字段时两边同时编译报错，
  * 不会出现「前端改了后端没改」这种只能靠跑起来才发现的问题。
  *
- * 信封一旦定下就保持稳定：P1 阶段 plan/courseware/trace/verification 全是 null，
- * 到 P3/P4/P6 逐个填上，前端不需要改结构。
+ * 信封一旦定下就保持稳定：plan/courseware/trace/verification 由各层逐步填充，
+ * 前端只需要处理「有值 / null」两种情况，不必跟随结构变化。
  */
 
 import type { Courseware } from './ir';
@@ -22,9 +22,9 @@ export const API_VERSION = 1 as const;
 export const MAX_UTTERANCE_LENGTH = 200;
 
 /**
- * 故障注入模式。**这是演示开关，不是产品功能**：
+ * 故障注入模式。**这是演练开关，不是产品功能**：
  * 它的存在是为了让「日志说调用了、页面却没有」这类问题可以被稳定复现，
- * 而不是靠运气遇到。三个模式刻意停在不同层，用来演示「看 trace 停在哪一层」。
+ * 而不是靠运气遇到。三个模式刻意停在不同层，用来验证「看 trace 停在哪一层」。
  */
 export const BUG_MODES = [
   /** 编排器丢掉 slider 节点：决策说用了两个 Skill，产物里只有一个 → L1 抓 */

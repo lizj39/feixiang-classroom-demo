@@ -1,9 +1,9 @@
-/**
+﻿/**
  * LLM 客户端：只做一件事 —— 把「system + user」变成一段文本。
  *
  * 刻意不引入 openai sdk：
  *   - 本项目只需要一个 `/v1/chat/completions` 调用，自己发 POST 更透明；
- *   - 面试官能一眼看完整个网络层，不用担心 sdk 里还做了什么。
+ *   - 整个网络层不到 40 行，评审时一眼能看完，不用担心 sdk 内部还做了什么。
  *
  * 换任何 OpenAI 兼容的服务（DeepSeek / Moonshot / 通义 / 本地 vLLM）只改配置。
  */

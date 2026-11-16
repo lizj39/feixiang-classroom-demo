@@ -1,5 +1,5 @@
-/**
- * 真实调用演示：用三句话验证 LLM 理解层。
+﻿/**
+ * 真实调用脚本：用三句话验证 LLM 理解层。
  *
  * 刻意不进 `npm test`：那会让测试结果取决于模型当天状态与网络。
  * 这是一个**手动脚本**，需要真实 key，跑一次约 3 次调用。
@@ -76,6 +76,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((error: unknown) => {
-  console.error('演示失败：', error instanceof Error ? error.message : error);
+  console.error('调用失败：', error instanceof Error ? error.message : error);
   process.exitCode = 1;
 });

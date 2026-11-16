@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+﻿// @vitest-environment jsdom
 /**
  * L3/L4 浏览器侧校验的验收。
  *
@@ -85,7 +85,7 @@ describe('L4 行为', () => {
     expect(input.value).toBe('2');
   });
 
-  it('控件存在但拖动不更新 → 失败（这正是题面里最难发现的那种故障）', async () => {
+  it('控件存在但拖动不更新 → 失败（这是最难发现的一类故障）', async () => {
     const root = document.createElement('div');
     root.innerHTML = [
       '<input type="range" min="-3" max="3" step="0.5" value="2" />',

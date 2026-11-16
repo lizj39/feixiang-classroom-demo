@@ -1,13 +1,13 @@
-/**
+﻿/**
  * 契约 3/5（衍生）—— 路由决策 Plan
  *
- * 为什么 Plan 单独成契约：题面第 1 问「怎么选」的答案就是这个对象。它必须同时携带
+ * 为什么 Plan 单独成契约：系统「怎么选」的结论就是这个对象。它必须同时携带
  * 结果（选了谁）和理由（为什么是它、为什么不是别人），否则页面上的解释只能靠文案编。
  *
  * 四种形态刻意不合并：
  *  - no_match：一个都没达到阈值 → 不该生成；
  *  - conflict：有多个达到阈值但互斥 → 可能降级保留其中一个，也可能平局后不生成。
- * 把两者合成一个 clarify，就丢掉了「冲突」和「没命中」的区别——而这正是面试要问的。
+ * 把两者合成一个 clarify，就丢掉了「冲突」和「没命中」的区别，而这两种情况的处理方式不同。
  */
 
 import type { ConflictResolution, SkillId } from './skill.js';
@@ -48,7 +48,7 @@ export interface ShadowedSignal {
   readonly kind: SignalKind;
 }
 
-/** 单个 Skill 的得分明细。证据面板逐行展示，面试时可以直接指着数字说话。 */
+/** 单个 Skill 的得分明细。证据面板逐行展示，每一分都能回溯到具体证据。 */
 export interface ScoreBreakdown {
   readonly skill: SkillId;
   /** 0-1，保留两位小数。等于 `min(totalPoints, 100) / 100`。 */

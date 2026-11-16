@@ -1,5 +1,5 @@
-/**
- * 四个演示场景的输入文案 —— 唯一事实源。
+﻿/**
+ * 四个示例场景的输入文案 —— 唯一事实源。
  *
  * 这里只放「老师会说什么」，不放「系统应该返回什么」：
  * 期望结果在 tests/fixtures/scenarios.ts，那是测试的基准，不该被 UI 引用。
@@ -18,7 +18,7 @@ export interface ScenarioCase {
   readonly label: string;
   /** 老师的原话（也是测试的输入） */
   readonly utterance: string;
-  /** 一句话提示这个场景在演示什么 */
+  /** 一句话说明这个场景的意图 */
   readonly expectation: string;
 }
 

@@ -1,9 +1,9 @@
-/**
+﻿/**
  * 页面骨架：标题条 + 三栏。
  *
- * 三栏是定下来的信息架构，后续阶段只往里面填内容，不再改布局：
+ * 三栏是定下来的信息架构，后续迭代只往里面填内容，不改布局：
  *   左 = 输入与场景   中 = 产物   右 = 证据
- * 右侧独立成栏是刻意的：面试时「为什么这么选」和「怎么知道生成对了」需要被指着看，
+ * 右侧独立成栏是刻意的：「为什么这么选」和「怎么知道生成对了」需要与产物并列展示，
  * 塞在产物下面会被忽略。
  *
  * 验证报告的合并在这个层做：课件 DOM 的 ref 由这里持有，L3/L4 需要它。
@@ -86,7 +86,7 @@ export function App({ initialBugMode }: { readonly initialBugMode?: BugMode | nu
     const trimmed = utterance.trim();
 
     if (trimmed.length === 0) {
-      setPhase({ kind: 'error', code: 'EMPTY_UTTERANCE', message: '请先输入需求，或选一个演示场景' });
+      setPhase({ kind: 'error', code: 'EMPTY_UTTERANCE', message: '请先输入需求，或选一个示例场景' });
       return;
     }
 
@@ -133,7 +133,7 @@ export function App({ initialBugMode }: { readonly initialBugMode?: BugMode | nu
                   : '✓ 四层验证通过'}
             </span>
           )}
-          <span className={busy ? 'badge badge--busy' : 'badge'}>阶段 8 / 8</span>
+          <span className={busy ? 'badge badge--busy' : 'badge'}>v0.1.0</span>
         </div>
       </header>
 
@@ -142,7 +142,7 @@ export function App({ initialBugMode }: { readonly initialBugMode?: BugMode | nu
           <strong>
             故障注入已开启：<code>{bugMode}</code>
           </strong>
-          <span>这是演示开关，用来稳定复现「日志说调用了、页面却没有」。看右侧验证报告停在哪一层。</span>
+          <span>这是故障演练开关，用来稳定复现「日志说调用了、页面却没有」。看右侧验证报告停在哪一层。</span>
         </div>
       )}
 

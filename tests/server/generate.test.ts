@@ -1,10 +1,10 @@
-/**
- * POST /api/generate 的 P1-2 验收。
+﻿/**
+ * POST /api/generate 的验收。
  *
  * 除了「正常返回」，这里还有一条刻意的守门断言：
  * plan / courseware / trace / verification 必须全是 null。
  * 一旦有人为了「界面好看」在这四个字段里塞写死的数据，这条测试会立刻失败 ——
- * 到 P3 接上真实路由时再改它，改的时候你会想起为什么当初要拦。
+ * 等接上真实路由时再改这条断言，改的时候会想起当初为什么要拦。
  */
 
 import type { Server } from 'node:http';

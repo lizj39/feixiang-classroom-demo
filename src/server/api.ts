@@ -2,11 +2,11 @@
  * API 路由。
  *
  * /api/health  —— 骨架自检（同源联通证明）
- * /api/generate —— 生成入口。P1-2 只做信封骨架：校验输入、回 requestId 与回声，
+ * /api/generate —— 生成入口：校验输入、回 requestId 与回声，
  *                  plan / courseware / trace / verification 一律 null。
  *
  * 为什么现在不返回课件：一旦这里返回写死的内容，后面接真路由时就分不清哪些是编的。
- * 有一条测试专门守着「这四个字段必须为 null」，等 P3 接上真实内容时再改那条断言。
+ * 有条测试守着「还没有产出的字段必须是 null」，防止提前塞写死的数据。
  */
 
 import { randomUUID } from 'node:crypto';
@@ -124,7 +124,7 @@ export function createApiRouter(): Router {
       const registry = getSkillRegistry();
       const recorder = createTraceRecorder();
 
-      // 理解方式：rule / llm / 缺省（auto）。没配 key 时自动降级，不影响演示
+      // 理解方式：rule / llm / 缺省（auto）。没配 key 时自动降级，不影响使用
       const selection = createParserFactory({ registry, config: readLlmConfig(process.env) })(rawParser);
       const { plan, intent } = await route(checked.utterance, {
         registry,

@@ -1,6 +1,6 @@
 ﻿// @vitest-environment jsdom
 /**
- * P1-2 / P2 的界面验收：三栏存在、空输入不请求、点生成能观察到 loading、
+ * 界面验收：三栏存在、空输入不请求、点生成能观察到 loading、
  * 请求体正确且只发一次、错误以 code + message 呈现、已注册 Skill 能显示出来。
  *
  * 这里不打真实服务端 —— 组件测试只该验证「组件的行为」；
@@ -167,7 +167,7 @@ describe('三栏骨架', () => {
     expect(screen.queryByTestId('error-banner')).toBeNull();
   });
 
-  it('四个演示场景按钮都在，点一下把文案填进输入框', () => {
+  it('四个示例场景按钮都在，点一下把文案填进输入框', () => {
     mockFetch();
     render(<App />);
     for (const scenario of SCENARIOS) {
@@ -486,7 +486,7 @@ describe('生成流程', () => {
     render(<App />);
     typeAndSubmit('能拖动滑块的一次函数演示');
 
-    // 1) 立刻能观察到 loading —— 这条是 P1-2 的核心验收判据
+    // 1) 立刻能观察到 loading —— 这条是关键验收判据
     expect(screen.getByTestId('loading-indicator')).toBeTruthy();
     const button = screen.getByTestId('generate-button') as HTMLButtonElement;
     expect(button.disabled).toBe(true);

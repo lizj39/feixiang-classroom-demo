@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Prompt 与输出解析。
  *
  * 输出被约束成**封闭结构**：能力只能是已注册的 SkillId，参数只能是数字。
@@ -121,5 +121,5 @@ export function parseLlmIntent(content: string): LlmIntentPayload {
   };
 }
 
-/** 供演示脚本与文档引用：让「模型不应该做的事」也有个常量。 */
+/** 供文档与脚本引用：让「模型不应该做的事」也有个常量。 */
 export const LLM_FORBIDDEN_SIGNALS = ['直接给分数', '直接决定是否生成', ...BUG_MODES];

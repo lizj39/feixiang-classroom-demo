@@ -1,7 +1,7 @@
-/**
- * 故障注入开关（演示用，`?bug=`）。
+﻿/**
+ * 故障注入开关（演练用，`?bug=`）。
  *
- * 为什么做成开关而不是写一段假日志：题面要的是「发现 → 定位 → 修复」的闭环，
+ * 为什么做成开关而不是写一段假日志：故障演练要的是「发现 → 定位 → 修复」的闭环，
  * 而假日志只能证明你会写日志。开关让故障**真实发生**：IR 里确实少了节点、
  * 绑定确实指错了、渲染器确实没注册 —— 于是验证器会真的红，trace 也会真的指向某一层。
  *
@@ -33,7 +33,7 @@ const ORIGINAL_RENDERERS: Record<string, unknown> = { ...NODE_RENDERERS };
  * 切换故障模式：先复原再按新模式注入。
  *
  * 为什么需要「复原」：从 unregistered-renderer 切回正常时，被删掉的渲染器必须回来，
- * 否则页面会一直缺滑块 —— 这种「开关关不掉」的 bug 在演示里最丢人。
+ * 否则页面会一直缺滑块 —— 这种「开关关不掉」的问题在实机演练时最难解释。
  */
 export function setRegistryBug(mode: BugMode | null): void {
   const mutable = NODE_RENDERERS as unknown as Record<string, unknown>;

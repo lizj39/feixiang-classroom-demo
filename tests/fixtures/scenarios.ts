@@ -1,7 +1,7 @@
-/**
+﻿/**
  * 场景 fixtures（契约的期望值，不是实现的产物）
  *
- * 这些对象在 P3 实现 Router 之前就写好，Router 的验收标准是「跑出来的结果等于这里」。
+ * 这些对象先于 Router 实现写定，Router 的验收标准是「跑出来的结果等于这里」。
  * 顺序反了就会变成「代码写成什么，测试就断言什么」——那样的测试等于没写。
  *
  * 计分约定（见 docs/SPEC.md）：整数百分制累加，`score = min(总分, 100) / 100`。
@@ -60,7 +60,7 @@ export const S1_PLAN = {
 } satisfies Plan;
 
 /**
- * S2 —— 组合 Skill（题面原例）
+ * S2 —— 组合 Skill
  * 「能拖动滑块的一次函数演示」
  * 期望：interactive-slider 1.00 与 function-plot 0.60 同时达标 → combo
  * 注意 0.60 正好压在阈值上：这条用例同时守护「边界值算达标」。
@@ -82,7 +82,7 @@ export const S2_PLAN = {
 } satisfies Plan;
 
 /**
- * S3 —— 冲突（题面「如果两者冲突」）
+ * S3 —— 冲突
  * 「出一道一次函数练习题，让学生选答案或填答案」
  * 期望：choice 与 input 同分 1.00、同槽位 exercise、且显式互斥 → 平局 → 降级澄清，不生成。
  * function-plot 只有 0.50，低于阈值，被明确排除（拒绝「看起来像答案」的凑数）。
@@ -128,7 +128,7 @@ export const S3_PLAN = {
 } satisfies Plan;
 
 /**
- * S4 —— 无匹配（题面「如果都不合适」）
+ * S4 —— 无匹配
  * 「帮我准备明天的班会」
  * 期望：全部 0 分 → no_match，不生成，给出澄清问题。
  */
@@ -155,7 +155,7 @@ export const S4_PLAN = {
  * S2 期望的课件 IR。
  *
  * 为什么现在就写：slider.bindTo 指向 plot 节点是「组合真的发生」的唯一硬证据。
- * 如果只断言「两个 Skill 都调用了」，那正是题面第 2 问里被骗的那种情况。
+ * 如果只断言「两个 Skill 都调用了」，那正是「日志说有、页面没有」的那种情况。
  */
 export const S2_COURSEWARE = {
   irVersion: 1,

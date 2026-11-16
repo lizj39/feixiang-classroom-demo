@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+﻿import { describe, expect, it } from 'vitest';
 
 import {
   BINDABLE_PLOT_PARAMS,
@@ -50,7 +50,7 @@ describe('契约常量：把设计约束钉成可断言的数字', () => {
     expect([...IR_CONTENT_KINDS, 'page'].sort()).toEqual([...IR_NODE_KINDS].sort());
   });
 
-  it('Skill 集合恰好 4 个（冲突演示需要两个同槽位的练习类 Skill）', () => {
+  it('Skill 集合恰好 4 个（冲突场景需要两个同槽位的练习类 Skill）', () => {
     expect(SKILL_IDS).toHaveLength(4);
     expect(new Set(SKILL_IDS).size).toBe(SKILL_IDS.length);
   });

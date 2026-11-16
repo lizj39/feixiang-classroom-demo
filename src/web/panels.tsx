@@ -3,7 +3,7 @@
  *  - 每个面板的 data-testid 是验收判据，单独成文件更容易定位；
  *  - 中间的「产物」与右边的「证据」职责不同：产物给人看结果，证据给人看理由。
  *
- * P3 起，证据面板开始展示真实数据：每个 Skill 的得分、每条证据及其来源、
+ * 证据面板展示的都是真实数据：每个 Skill 的得分、每条证据及其来源、
  * 以及服务端写的分层 trace。
  */
 
@@ -44,7 +44,7 @@ const PARSER_OPTIONS: ReadonlyArray<{ value: ParserMode | null; label: string; h
   { value: 'llm', label: 'LLM 版', hint: '模型读能力与参数' },
 ];
 
-/** 故障演示选项。做成页面按钮而不是让人改 URL —— 演示时少一次手抖的机会。 */
+/** 故障演练选项。做成页面按钮而不是让人改 URL —— 演练时少一次手抖的机会。 */
 const BUG_OPTIONS: ReadonlyArray<{ value: BugMode | null; hint: string }> = [
   { value: null, hint: '四层全绿' },
   { value: 'drop-node', hint: '编排丢滑块 → L1' },
@@ -121,7 +121,7 @@ export function RequestPanel({
       </div>
 
       <div className="scenarios">
-        <h3 className="panel__subtitle">故障演示（第 2 问）</h3>
+        <h3 className="panel__subtitle">故障演练</h3>
         <div className="scenario-list">
           {BUG_OPTIONS.map((option) => (
             <button
@@ -140,7 +140,7 @@ export function RequestPanel({
       </div>
 
       <div className="scenarios">
-        <h3 className="panel__subtitle">演示场景</h3>
+        <h3 className="panel__subtitle">示例场景</h3>
         <div className="scenario-list">
           {SCENARIOS.map((scenario) => (
             <button
@@ -186,7 +186,7 @@ export function PreviewPanel({
           <p className="placeholder">
             还没有生成任何东西。
             <br />
-            选一个演示场景，或自己写一句需求，然后点「生成课件」。
+            选一个示例场景，或自己写一句需求，然后点「生成课件」。
           </p>
         )}
 

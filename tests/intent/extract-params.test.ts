@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 参数抽取的验收。
  *
  * 这一层的价值是「老师说什么函数，就画什么函数」，所以用例都是真实可能的说法，
@@ -71,7 +71,7 @@ describe('抽不到时不瞎猜', () => {
     expect(extractParams('画个一次函数的图像').values).toEqual({});
   });
 
-  it('四个演示场景的默认输入都不带参数（fixtures 不受影响）', () => {
+  it('四个示例场景的默认输入都不带参数（fixtures 不受影响）', () => {
     for (const id of ['S1', 'S2', 'S3', 'S4'] as const) {
       const utterance = findScenario(id).utterance;
       // S1 的句子里带 y=2x+1，正好等于 manifest 默认值；其余为空

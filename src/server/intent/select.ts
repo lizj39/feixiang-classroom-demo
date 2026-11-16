@@ -1,11 +1,11 @@
-/**
+﻿/**
  * 解析器选择：一处分叉，三个输入。
  *
  *   flags.parser = 'rule' → 强制规则版
  *   flags.parser = 'llm'  → 要 LLM；没配置就降级并在 trace 里写明原因
  *   flags.parser 缺省     → auto：配了 key 用 LLM，没配用规则
  *
- * 这样「面试官没配 key」与「配了 key 但服务挂了」都不影响演示 ——
+ * 这样「没配 key」与「配了 key 但服务挂了」都不影响正常使用 ——
  * 只是降级，不是失败。
  */
 
