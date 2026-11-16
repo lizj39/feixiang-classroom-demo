@@ -50,7 +50,7 @@ export const S1_PLAN = {
   utterance: findScenario('S1').utterance,
   selected: ['function-plot'],
   scores: [
-    breakdown('function-plot', 0.9, [sig('图像', 'primary', 50), sig('y=', 'synonym', 20), sig('画', 'synonym', 20)]),
+    breakdown('function-plot', 0.9, [sig('图像', 'primary', 50), sig('画', 'synonym', 20), sig('y=', 'synonym', 20)]),
     zero('interactive-slider'),
     zero('exercise-choice'),
     zero('exercise-input'),

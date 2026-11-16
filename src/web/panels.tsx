@@ -1,10 +1,19 @@
 /**
  * 三个面板。刻意拆成独立组件而不是塞进 App：
- *  - 每个面板的 data-testid 是 P1-2 的验收判据，单独成文件更容易定位；
- *  - P6 起「证据面板」会膨胀成选择理由 / trace / 验证报告三块，届时只改这里。
+ *  - 每个面板的 data-testid 是验收判据，单独成文件更容易定位；
+ *  - 中间的「产物」与右边的「证据」职责不同：产物给人看结果，证据给人看理由。
+ *
+ * P3 起，证据面板开始展示真实数据：每个 Skill 的得分、每条证据及其来源、
+ * 以及服务端写的分层 trace。
  */
 
-import { MAX_UTTERANCE_LENGTH, SCENARIOS, type SkillManifest } from '../contracts/index';
+import {
+  MAX_UTTERANCE_LENGTH,
+  SCENARIOS,
+  shouldGenerate,
+  type Plan,
+  type SkillManifest,
+} from '../contracts/index';
 import type { Phase } from './phase';
 
 interface RequestPanelProps {
@@ -65,6 +74,13 @@ export function RequestPanel({ utterance, disabled, onChange, onSubmit }: Reques
   );
 }
 
+const PLAN_TYPE_LABEL: Record<Plan['type'], string> = {
+  single: '单 Skill',
+  combo: '组合',
+  conflict: '冲突',
+  no_match: '无匹配',
+};
+
 export function PreviewPanel({ phase }: { readonly phase: Phase }) {
   return (
     <section className="panel panel--preview" data-testid="preview-panel">
@@ -92,20 +108,59 @@ export function PreviewPanel({ phase }: { readonly phase: Phase }) {
           </div>
         )}
 
-        {phase.kind === 'success' && (
+        {phase.kind === 'success' && phase.response.plan === null && (
           <div className="receipt" data-testid="receipt">
             <p className="receipt__title">服务端已收到这次请求</p>
-            <dl className="receipt__list">
-              <dt>需求</dt>
-              <dd data-testid="receipt-utterance">{phase.response.utterance}</dd>
-              <dt>requestId</dt>
-              <dd className="mono">{phase.response.requestId}</dd>
-              <dt>收到时间</dt>
-              <dd className="mono">{phase.response.receivedAt}</dd>
-            </dl>
+            <p className="panel__hint" data-testid="receipt-utterance">
+              {phase.response.utterance}
+            </p>
+            <pre className="mono">{phase.response.requestId}</pre>
+          </div>
+        )}
+
+        {phase.kind === 'success' && phase.response.plan !== null && (
+          <div className="decision" data-testid="decision">
+            <div className="decision__head">
+              <span className="badge badge--strong" data-testid="decision-type">
+                {PLAN_TYPE_LABEL[phase.response.plan.type]}
+              </span>
+              <span className={shouldGenerate(phase.response.plan) ? 'badge badge--ok' : 'badge badge--warn'}>
+                {shouldGenerate(phase.response.plan) ? '生成课件' : '不生成'}
+              </span>
+            </div>
+
+            <p className="decision__reason" data-testid="decision-reason">
+              {phase.response.plan.reason}
+            </p>
+
+            {phase.response.plan.selected.length > 0 && (
+              <div className="decision__selected">
+                {phase.response.plan.selected.map((id) => (
+                  <span key={id} className="chip chip--static mono">
+                    {id}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {phase.response.plan.questions.length > 0 && (
+              <div className="questions" data-testid="clarify-questions">
+                <h3 className="panel__subtitle">需要你补充</h3>
+                <ol className="questions__list">
+                  {phase.response.plan.questions.map((question) => (
+                    <li key={question.id}>
+                      {question.question}
+                      {question.options && question.options.length > 0 && (
+                        <span className="questions__options">{question.options.join(' / ')}</span>
+                      )}
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            )}
+
             <p className="panel__hint">
-              当前是阶段 1 的接口骨架：<code>plan</code> / <code>courseware</code> / <code>trace</code> /{' '}
-              <code>verification</code> 都还是 <code>null</code>。P3 接路由、P4 接渲染器之后，这里会变成真正的可操作课件。
+              课件渲染在 P4 接入：这一步已经确定了用哪个 Skill、参数怎么绑，但还没有画出可操作的界面。
             </p>
           </div>
         )}
@@ -113,12 +168,6 @@ export function PreviewPanel({ phase }: { readonly phase: Phase }) {
     </section>
   );
 }
-
-const EVIDENCE_SLOTS = [
-  { key: '选择理由', detail: '每个 Skill 的得分与命中词（P3）' },
-  { key: '执行链路', detail: 'router → composer → renderer → validator 的分层 trace（P6）' },
-  { key: '验证报告', detail: 'L1 路由 / L2 IR / L3 DOM / L4 行为（P6）' },
-] as const;
 
 export function EvidencePanel({
   phase,
@@ -128,6 +177,11 @@ export function EvidencePanel({
   /** null = 加载中；[] = 加载失败或注册表为空 */
   readonly skills: readonly SkillManifest[] | null;
 }) {
+  const plan = phase.kind === 'success' ? phase.response.plan : null;
+  const trace = phase.kind === 'success' ? phase.response.trace : null;
+  // plan.selected 是三种元组/数组的联合（含空元组），直接 .includes 会被推成 never
+  const selectedIds = new Set<string>(plan?.selected ?? []);
+
   return (
     <section className="panel" data-testid="evidence-panel">
       <h2 className="panel__title">证据面板</h2>
@@ -135,7 +189,86 @@ export function EvidencePanel({
         这一栏回答「为什么这么选」和「生成得对不对」。所有结论都来自服务端返回的结构化数据，不是界面文案。
       </p>
 
-      <div className="skill-block" data-testid="registered-skills">
+      <div className="block" data-testid="evidence-scores">
+        <h3 className="panel__subtitle">选择理由（每个 Skill 的得分与证据）</h3>
+
+        {plan === null && <p className="panel__hint">还没有请求，所以还没有分数。</p>}
+
+        {plan !== null && (
+          <table className="score-table">
+            <tbody>
+              {plan.scores.map((breakdown) => (
+                <tr
+                  key={breakdown.skill}
+                  data-testid={`score-${breakdown.skill}`}
+                  className={selectedIds.has(breakdown.skill) ? 'score-row is-selected' : 'score-row'}
+                >
+                  <td className="mono score-row__skill">{breakdown.skill}</td>
+                  <td className="score-row__value">{breakdown.score.toFixed(2)}</td>
+                  <td className="score-row__signals">
+                    {breakdown.signals.length === 0 && <span className="muted">—</span>}
+                    {breakdown.signals.map((signal) => (
+                      <span
+                        key={`${signal.token}-${signal.by}`}
+                        className={signal.by === 'llm' ? 'signal signal--llm' : 'signal'}
+                        title={signal.by === 'llm' ? 'LLM 判定的能力' : '词表命中的词'}
+                      >
+                        {signal.token}
+                        <em>+{signal.points}</em>
+                      </span>
+                    ))}
+                    {breakdown.shadowed.map((shadow) => (
+                      <span
+                        key={`${shadow.token}-shadowed`}
+                        className="signal signal--shadowed"
+                        title={`被「${shadow.shadowedBy}」遮挡，不重复计分`}
+                      >
+                        {shadow.token}
+                        <em>0</em>
+                      </span>
+                    ))}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+
+        {plan !== null && (
+          <p className="panel__hint">
+            阈值 0.60。灰色删除线表示命中了但被更长的词遮挡（同一含义不重复计分）；
+            蓝色标的是 LLM 判定的能力，与词表证据分开显示。
+          </p>
+        )}
+      </div>
+
+      <div className="block" data-testid="evidence-trace">
+        <h3 className="panel__subtitle">执行链路（服务端写入的 trace）</h3>
+
+        {trace === null && <p className="panel__hint">还没有请求。</p>}
+
+        {trace !== null && (
+          <ol className="trace-list">
+            {trace.events.map((event) => (
+              <li key={event.seq} className="trace-item" data-testid="trace-event">
+                <span className="badge">{event.layer}</span>
+                <span className="trace-item__step mono">{event.step}</span>
+                <span className="trace-item__decision">{event.decision}</span>
+                <p className="trace-item__reason">{event.reason}</p>
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
+
+      <div className="block" data-testid="evidence-verification">
+        <h3 className="panel__subtitle">验证报告（L1–L4）</h3>
+        <p className="panel__hint">
+          还没接入。P6 会在这里显示：路由选对没有、IR 里真有节点没有、DOM 里真有控件没有、拖动真的重绘没有。
+        </p>
+      </div>
+
+      <div className="block" data-testid="registered-skills">
         <h3 className="panel__subtitle">
           已注册的 Skill
           {skills ? `（${skills.length}）` : ''}
@@ -163,18 +296,6 @@ export function EvidencePanel({
           </ul>
         )}
       </div>
-
-      <ul className="evidence-list">
-        {EVIDENCE_SLOTS.map((slot) => (
-          <li key={slot.key} className="evidence-item" data-testid={`evidence-${slot.key}`}>
-            <div className="evidence-item__head">
-              <strong>{slot.key}</strong>
-              <span className="badge">{phase.kind === 'success' ? '待接入' : '未开始'}</span>
-            </div>
-            <p className="evidence-item__detail">{slot.detail}</p>
-          </li>
-        ))}
-      </ul>
     </section>
   );
 }

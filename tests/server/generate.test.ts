@@ -54,13 +54,32 @@ describe('POST /api/generate 正常路径', () => {
     expect(Number.isNaN(Date.parse(body.receivedAt))).toBe(false);
   });
 
-  it('四个业务字段在本阶段必须为 null（防止写死演示数据）', async () => {
-    const res = await postJson({ utterance: '画一下 y=2x+1 的图像' });
+  it('plan 与 trace 已是真实数据；courseware / verification 仍为 null（P4 / P6 接入）', async () => {
+    const res = await postJson({ utterance: '能拖动滑块的一次函数演示' });
     const body = (await res.json()) as GenerateResponse;
-    expect(body.plan).toBeNull();
+
+    expect(body.plan).not.toBeNull();
+    expect(body.plan?.type).toBe('combo');
+    expect(body.plan?.scores).toHaveLength(4);
     expect(body.courseware).toBeNull();
-    expect(body.trace).toBeNull();
     expect(body.verification).toBeNull();
+  });
+
+  it('trace 由服务端写入：序号连续、层为 router、与 requestId 绑定', async () => {
+    const res = await postJson({ utterance: '能拖动滑块的一次函数演示' });
+    const body = (await res.json()) as GenerateResponse;
+
+    const events = body.trace?.events ?? [];
+    expect(events.length).toBeGreaterThanOrEqual(4);
+    expect(events.map((event) => event.seq)).toEqual(events.map((_, index) => index + 1));
+    expect(new Set(events.map((event) => event.layer))).toEqual(new Set(['router']));
+    expect(body.trace?.requestId).toBe(body.requestId);
+
+    for (const event of events) {
+      expect(event.decision.length).toBeGreaterThan(0);
+      expect(event.reason.length).toBeGreaterThan(0);
+      expect(Number.isNaN(Date.parse(event.at))).toBe(false);
+    }
   });
 
   it('连续两次请求的 requestId 不同', async () => {

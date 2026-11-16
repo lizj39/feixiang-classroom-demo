@@ -13,6 +13,14 @@
 | 4 | `trace.ts` | 每一步发生在哪一层 | 全部层、证据面板 |
 | 5 | `verification.ts` | 用对了没有、错在哪层 | Validator、证据面板 |
 
+三个配套定义（不是业务契约，但同样被多方共用）：
+
+| 文件 | 作用 |
+|---|---|
+| `api.ts` | 传输层信封 + 错误码，前后端共用 |
+| `intent.ts` | 理解层：`IntentParser` 接口与 `ParsedIntent`，**P8 接 LLM 的唯一改动点** |
+| `scenarios.ts` | 四个演示场景的输入文案，测试与界面共用 |
+
 ---
 
 ## 1. Skill Manifest
@@ -204,7 +212,52 @@ shadowed: [{ token: '选', shadowedBy: '选答案', kind: 'synonym' }]
 
 ---
 
-## 6. 版本与变更
+## 6. 理解层 IntentParser（LLM 的唯一接入点）
+
+**目的**：把「一句人话」变成「可打分的意图证据」。这一层单独抽出来，是为了 P8 接 LLM 时
+下游一行不改。
+
+```ts
+interface IntentParser {
+  readonly id: 'rule' | 'llm';
+  parse(utterance: string): Promise<ParsedIntent>;
+}
+
+interface ParsedIntent {
+  utterance: string;              // 归一化后
+  matchedTokens: readonly string[];   // 词表在原文里真的匹配到的词
+  capabilities: readonly SkillId[];   // LLM 判定的能力（规则版恒为空）
+  parser: 'rule' | 'llm';
+  normalized?: string;            // LLM 的标准化复述，仅展示
+  degraded?: { reason: string };  // LLM 失败降级的原因
+}
+```
+
+三条约束：
+
+1. **解析器不打分、不裁决。** `matchedTokens` 只记词，是 strong 还是 weak 由打分器按各自
+   manifest 重新判断——同一个词在不同 Skill 里可能权重不同。
+2. **证据来源必须分得开。** `signals[].by` 取 `lexicon` / `llm`，界面上分开显示。
+   LLM 判定的能力在原文里可能没有对应的词，冒充分数会让「可解释」变成「看起来可解释」。
+3. **降级必须有痕迹。** LLM 超时 / 返回非 JSON / 给出未知能力 → 回到规则版，并在
+   `degraded.reason` 里写明，trace 上能看到「这次没有模型参与」。
+
+分值（整数百分制，`score = min(Σpoints, 100)/100`）：
+
+| 来源 | kind | points |
+|---|---|---|
+| 词表 | primary | 50 |
+| 词表 | synonym | 20 |
+| 词表 | intent | 10 |
+| LLM | capability | **60** |
+
+`capability` 取 60 而不是 50 是被测试逼出来的：50 分低于 0.60 的阈值，会导致
+「接了 LLM 反而比词表更难选中」。60 分恰好等于阈值——单个能力标签能单独成立，
+又不足以在叠加后压过大量词表证据。
+
+---
+
+## 7. 版本与变更
 
 - `CONTRACT_VERSION` 与 `package.json` 的版本**解耦**：契约一改，fixtures 就要跟着改，所以单独记版本
 - 改契约的顺序必须是：改 `src/contracts` → 改 fixtures → 改测试 → 再改实现。反序就会写出一堆「代码怎么写、测试就怎么断言」的假测试。

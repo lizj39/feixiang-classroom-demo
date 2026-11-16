@@ -18,8 +18,10 @@ import {
   type SkillId,
   type SkillManifest,
   type SkillSlot,
+  type Trace,
 } from '../../src/contracts/index';
 import { App } from '../../src/web/App';
+import { S2_PLAN, S3_PLAN, S4_PLAN } from '../fixtures/scenarios';
 
 const fetchMock = vi.fn();
 
@@ -97,6 +99,33 @@ const SUCCESS_PAYLOAD: GenerateResponse = {
   verification: null,
 };
 
+const TRACE: Trace = {
+  traceVersion: 1,
+  requestId: 'req_00000000-0000-0000-0000-000000000000',
+  events: [
+    {
+      seq: 1,
+      layer: 'router',
+      at: '2026-01-01T00:00:00.000Z',
+      step: 'parse-intent',
+      input: { utterance: '能拖动滑块的一次函数演示' },
+      output: { matchedTokens: ['拖动', '滑块', '一次函数', '演示'] },
+      decision: '用 rule 解析器理解需求',
+      reason: '命中 4 个触发词',
+    },
+    {
+      seq: 2,
+      layer: 'router',
+      at: '2026-01-01T00:00:00.001Z',
+      step: 'score-skills',
+      input: {},
+      output: {},
+      decision: '按整数百分制给每个 Skill 打分',
+      reason: '最高分 interactive-slider 1.00',
+    },
+  ],
+};
+
 beforeEach(() => {
   fetchMock.mockReset();
   vi.stubGlobal('fetch', fetchMock);
@@ -169,6 +198,77 @@ describe('已注册的 Skill（P2）', () => {
 
     typeAndSubmit('画个图');
     expect(await screen.findByTestId('receipt')).toBeTruthy();
+  });
+});
+
+describe('决策与证据（P3）', () => {
+  const payloadWith = (plan: GenerateResponse['plan']): GenerateResponse => ({
+    ...SUCCESS_PAYLOAD,
+    plan,
+    trace: TRACE,
+  });
+
+  it('预览区显示决策类型、理由与选中的 Skill', async () => {
+    mockFetch({ generate: async () => jsonResponse(payloadWith(S2_PLAN)) });
+    render(<App />);
+    typeAndSubmit('能拖动滑块的一次函数演示');
+
+    expect((await screen.findByTestId('decision-type')).textContent).toBe('组合');
+    expect(screen.getByTestId('decision-reason').textContent).toContain('同时达标');
+    expect(screen.getByTestId('decision').textContent).toContain('interactive-slider');
+    expect(screen.queryByTestId('clarify-questions')).toBeNull();
+  });
+
+  it('证据面板逐行展示分数与证据，未入选的 Skill 也在表里', async () => {
+    mockFetch({ generate: async () => jsonResponse(payloadWith(S2_PLAN)) });
+    render(<App />);
+    typeAndSubmit('能拖动滑块的一次函数演示');
+
+    await screen.findByTestId('score-function-plot');
+    const plot = screen.getByTestId('score-function-plot');
+    expect(plot.textContent).toContain('0.60');
+    expect(plot.textContent).toContain('一次函数');
+    expect(plot.textContent).toContain('+50');
+    expect(plot.className).toContain('is-selected');
+
+    // 0 分的 Skill 也必须出现，否则「为什么没选它」无从回答
+    const choice = screen.getByTestId('score-exercise-choice');
+    expect(choice.textContent).toContain('0.00');
+    expect(choice.className).not.toContain('is-selected');
+  });
+
+  it('被遮蔽的词显示为 0，让「为什么没加分」可见', async () => {
+    mockFetch({ generate: async () => jsonResponse(payloadWith(S3_PLAN)) });
+    render(<App />);
+    typeAndSubmit('出一道一次函数练习题');
+
+    const row = await screen.findByTestId('score-exercise-choice');
+    expect(row.textContent).toContain('选答案');
+    expect(row.textContent).toContain('选');
+    // 遮蔽证据带 0 分标记
+    expect(row.querySelector('.signal--shadowed')?.textContent).toContain('选');
+  });
+
+  it('不生成时把澄清问题摆到老师面前', async () => {
+    mockFetch({ generate: async () => jsonResponse(payloadWith(S4_PLAN)) });
+    render(<App />);
+    typeAndSubmit('帮我准备明天的班会');
+
+    expect((await screen.findByTestId('decision-type')).textContent).toBe('无匹配');
+    expect(screen.getByTestId('decision').textContent).toContain('不生成');
+    expect(screen.getByTestId('clarify-questions')).toBeTruthy();
+  });
+
+  it('执行链路按 trace 事件逐条渲染', async () => {
+    mockFetch({ generate: async () => jsonResponse(payloadWith(S2_PLAN)) });
+    render(<App />);
+    typeAndSubmit('能拖动滑块的一次函数演示');
+
+    await screen.findByTestId('score-function-plot');
+    const events = screen.getAllByTestId('trace-event');
+    expect(events).toHaveLength(TRACE.events.length);
+    expect(events[0]?.textContent).toContain('parse-intent');
+    expect(events[1]?.textContent).toContain('score-skills');
   });
 });
 

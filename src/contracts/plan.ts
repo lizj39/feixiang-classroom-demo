@@ -33,7 +33,7 @@ export interface Signal {
   /** 命中的词；`by === 'llm'` 时是能力名（如 `slider`）。 */
   readonly token: string;
   readonly kind: SignalKind;
-  /** 实际计入的分值。primary 50 / synonym 20 / intent 10 / capability 50。 */
+  /** 实际计入的分值。primary 50 / synonym 20 / intent 10 / capability 60。 */
   readonly points: number;
   readonly by: SignalSource;
 }

@@ -20,7 +20,10 @@ import {
   type GenerateResponse,
   type SkillsResponse,
 } from '../contracts/index';
+import { createRuleIntentParser } from './intent/rule-parser';
+import { route } from './router/route';
 import { getSkillRegistry } from './skills/registry';
+import { createTraceRecorder } from './trace/recorder';
 
 export interface HealthPayload {
   readonly ok: true;
@@ -63,7 +66,7 @@ export function createApiRouter(): Router {
     res.json(payload);
   });
 
-  router.post('/generate', (req, res) => {
+  router.post('/generate', async (req, res, next) => {
     const body = req.body as { utterance?: unknown } | undefined;
     const checked = readUtterance(body?.utterance);
 
@@ -74,18 +77,32 @@ export function createApiRouter(): Router {
       return;
     }
 
-    const response: GenerateResponse = {
-      apiVersion: API_VERSION,
-      requestId: newRequestId(),
-      receivedAt: new Date().toISOString(),
-      utterance: checked.utterance,
-      // ↓ 这四个字段是后续阶段的填充点，P1-2 阶段保持 null
-      plan: null,
-      courseware: null,
-      trace: null,
-      verification: null,
-    };
-    res.json(response);
+    const requestId = newRequestId();
+    const receivedAt = new Date().toISOString();
+
+    try {
+      const registry = getSkillRegistry();
+      const recorder = createTraceRecorder();
+
+      // 理解层目前只有规则版；P8 换成 LLM 版时，这一行之外没有任何改动
+      const parser = createRuleIntentParser(registry);
+      const plan = await route(checked.utterance, { registry, parser, emit: recorder.emit });
+
+      const response: GenerateResponse = {
+        apiVersion: API_VERSION,
+        requestId,
+        receivedAt,
+        utterance: checked.utterance,
+        plan,
+        // ↓ 后续阶段的填充点：P4/P5 产出 IR，P6 产出验证报告
+        courseware: null,
+        trace: recorder.toTrace(requestId),
+        verification: null,
+      };
+      res.json(response);
+    } catch (error) {
+      next(error);
+    }
   });
 
   return router;
