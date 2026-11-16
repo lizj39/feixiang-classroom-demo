@@ -7,18 +7,34 @@
  * 塞在产物下面会被忽略。
  */
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
-import { CONTRACT_VERSION } from '../contracts/index';
-import { ApiRequestError, requestGenerate } from './api';
+import { CONTRACT_VERSION, type SkillManifest } from '../contracts/index';
+import { ApiRequestError, requestGenerate, requestSkills } from './api';
 import { EvidencePanel, PreviewPanel, RequestPanel } from './panels';
 import { isBusy, type Phase } from './phase';
 
 export function App() {
   const [utterance, setUtterance] = useState('');
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' });
+  // null = 加载中；[] = 加载失败（不阻塞生成流程，只是这块证据缺失）
+  const [skills, setSkills] = useState<readonly SkillManifest[] | null>(null);
 
   const busy = isBusy(phase);
+
+  useEffect(() => {
+    let cancelled = false;
+    requestSkills()
+      .then((list) => {
+        if (!cancelled) setSkills(list);
+      })
+      .catch(() => {
+        if (!cancelled) setSkills([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const submit = useCallback(async () => {
     const trimmed = utterance.trim();
@@ -66,7 +82,7 @@ export function App() {
           }}
         />
         <PreviewPanel phase={phase} />
-        <EvidencePanel phase={phase} />
+        <EvidencePanel phase={phase} skills={skills} />
       </main>
     </div>
   );

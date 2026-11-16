@@ -1,6 +1,6 @@
 # CONTRACTS
 
-> 契约版本 `0.1.0`。代码：`src/contracts/`。
+> 契约版本 `0.2.0`。代码：`src/contracts/`。
 > 规则：**实现依赖契约，契约不依赖实现**。任何一方绕开契约（例如在渲染器里 if 判断 SkillId）都算违规。
 
 五个契约，各自回答一个问题：
@@ -122,6 +122,32 @@ id: 'interactive-slidr'      // 拼错
 { type: 'single', selected: ['function-plot', 'interactive-slider'] }  // 类型不允许
 { type: 'no_match', selected: ['function-plot'] }                      // 自相矛盾
 ```
+
+### 3.1 计分证据 `Signal`
+
+`ScoreBreakdown` 不存字符串数组，而是存带来源与分值的证据：
+
+```ts
+signals: [
+  { token: '图像', kind: 'primary', points: 50, by: 'lexicon' },
+  { token: 'y=',   kind: 'synonym', points: 20, by: 'lexicon' },
+]
+shadowed: [{ token: '选', shadowedBy: '选答案', kind: 'synonym' }]
+```
+
+两个字段都是为 P8 的 LLM 准备的，但**现在就要定**：
+
+| 字段 | 回答什么问题 |
+|---|---|
+| `points` | 这一分是怎么来的（界面可逐行相加） |
+| `by` | 这条证据是词表命中的，还是模型读出来的 |
+| `shadowedBy` | 这个词命中了为什么没加分 |
+
+`by` 不能省：LLM 会给出「原文里没有的能力词」——老师说「让学生自己调参数看看」，模型读出「滑块」。
+如果界面显示「命中『滑块』+50」而原文没有这两个字，是能被一眼看穿的破绽。
+分成 `lexicon` / `llm` 之后，这类证据在界面上是另一行、另一种颜色。
+
+约束：`score === min(Σpoints, 100) / 100`（由 `scoreFromPoints(totalPoints(b))` 保证唯一实现）。
 
 ---
 

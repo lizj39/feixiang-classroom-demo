@@ -4,7 +4,7 @@
  *  - P6 起「证据面板」会膨胀成选择理由 / trace / 验证报告三块，届时只改这里。
  */
 
-import { MAX_UTTERANCE_LENGTH, SCENARIOS } from '../contracts/index';
+import { MAX_UTTERANCE_LENGTH, SCENARIOS, type SkillManifest } from '../contracts/index';
 import type { Phase } from './phase';
 
 interface RequestPanelProps {
@@ -120,13 +120,49 @@ const EVIDENCE_SLOTS = [
   { key: '验证报告', detail: 'L1 路由 / L2 IR / L3 DOM / L4 行为（P6）' },
 ] as const;
 
-export function EvidencePanel({ phase }: { readonly phase: Phase }) {
+export function EvidencePanel({
+  phase,
+  skills,
+}: {
+  readonly phase: Phase;
+  /** null = 加载中；[] = 加载失败或注册表为空 */
+  readonly skills: readonly SkillManifest[] | null;
+}) {
   return (
     <section className="panel" data-testid="evidence-panel">
       <h2 className="panel__title">证据面板</h2>
       <p className="panel__hint">
         这一栏回答「为什么这么选」和「生成得对不对」。所有结论都来自服务端返回的结构化数据，不是界面文案。
       </p>
+
+      <div className="skill-block" data-testid="registered-skills">
+        <h3 className="panel__subtitle">
+          已注册的 Skill
+          {skills ? `（${skills.length}）` : ''}
+        </h3>
+
+        {skills === null && <p className="panel__hint">加载中…</p>}
+        {skills !== null && skills.length === 0 && <p className="panel__hint">未能加载 Skill 清单</p>}
+
+        {skills !== null && skills.length > 0 && (
+          <ul className="skill-list">
+            {skills.map((skill) => (
+              <li key={skill.id} className="skill-item" data-testid={`skill-${skill.id}`}>
+                <div className="skill-item__head">
+                  <strong>{skill.displayName}</strong>
+                  <code>{skill.id}</code>
+                </div>
+                <div className="skill-item__meta">
+                  <span className="badge">槽位 {skill.slot}</span>
+                  <span className="badge">优先级 {skill.priority}</span>
+                  <span className="badge">产出 {skill.produces.join(' / ')}</span>
+                </div>
+                <p className="skill-item__summary">{skill.summary}</p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
       <ul className="evidence-list">
         {EVIDENCE_SLOTS.map((slot) => (

@@ -11,6 +11,7 @@ import type {
   IrContentNode,
   Plan,
   ScoreBreakdown,
+  Signal,
   SkillId,
   SkillManifest,
   SliderBinding,
@@ -82,6 +83,15 @@ export const badProduces: SkillManifest['produces'] = [
   'story',
 ];
 
-/** 9. 得分必须是数字，且明细字段不可缺（证据面板要逐行展示）。 */
+/** 9. 得分必须是数字，且证据要有来源与分值（缺了就解释不了「为什么是这一分」）。 */
 // @ts-expect-error score 必须是 number
-export const badScore: ScoreBreakdown = { skill: 'function-plot', score: '0.9', matchedTokens: [], ignoredTokens: [] };
+export const badScore: ScoreBreakdown = { skill: 'function-plot', score: '0.9', signals: [], shadowed: [] };
+
+/** 9b. 证据来源只有 lexicon / llm 两种，不能自造。 */
+export const badSignalSource: Signal = {
+  token: '滑块',
+  kind: 'primary',
+  points: 50,
+  // @ts-expect-error 'human' 不是合法来源
+  by: 'human',
+};

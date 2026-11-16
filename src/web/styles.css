@@ -359,6 +359,58 @@ code {
   font-size: 12px;
 }
 
+/* ---------- 证据面板：已注册 Skill ---------- */
+
+.skill-block {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+.skill-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.skill-item {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fbfcfd;
+}
+
+.skill-item__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.skill-item__head code {
+  font-size: 11px;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.skill-item__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.skill-item__summary {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
 /* ---------- 窄屏降级为单列 ---------- */
 
 @media (max-width: 1180px) {

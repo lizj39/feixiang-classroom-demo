@@ -6,7 +6,7 @@
  * 而是转成带 code 的 ApiRequestError —— 界面上永远能显示一个有意义的错误码。
  */
 
-import type { ApiErrorPayload, GenerateResponse } from '../contracts/index';
+import type { ApiErrorPayload, GenerateResponse, SkillManifest, SkillsResponse } from '../contracts/index';
 
 export class ApiRequestError extends Error {
   readonly code: string;
@@ -37,4 +37,18 @@ export async function requestGenerate(utterance: string): Promise<GenerateRespon
   }
 
   return payload as GenerateResponse;
+}
+
+/**
+ * 拉取已注册的 Skill 清单。
+ * 失败时抛错由调用方决定怎么显示 —— 这块信息是「解释性」的，
+ * 拿不到不应该阻塞主流程（生成课件仍然可用）。
+ */
+export async function requestSkills(): Promise<readonly SkillManifest[]> {
+  const response = await fetch('/api/skills');
+  if (!response.ok) {
+    throw new ApiRequestError('INTERNAL', `加载 Skill 清单失败（HTTP ${response.status}）`);
+  }
+  const payload = (await response.json()) as SkillsResponse;
+  return payload.skills;
 }

@@ -1,37 +1,59 @@
-﻿/**
+/**
  * 场景 fixtures（契约的期望值，不是实现的产物）
  *
- * 这些对象在 P3 实现 Router 之前先写好，Router 的验收标准就是「跑出来的结果等于这里」。
+ * 这些对象在 P3 实现 Router 之前就写好，Router 的验收标准是「跑出来的结果等于这里」。
  * 顺序反了就会变成「代码写成什么，测试就断言什么」——那样的测试等于没写。
  *
- * 计分约定（见 docs/SPEC.md）：整数百分制累加后再除以 100，
- * 所以 60 / 100 === 0.6、70 / 100 === 0.7 在 IEEE754 下精确成立，
- * 阈值判定不会因为 0.1 + 0.2 !== 0.3 这类误差把「刚好达标」判成「不达标」。
+ * 计分约定（见 docs/SPEC.md）：整数百分制累加，`score = min(总分, 100) / 100`。
+ * 用整数而不是 0.5 + 0.1 这类浮点累加，是为了让 60/100 === 0.6 精确成立 ——
+ * S2 的 function-plot 正好压在阈值 0.60 上，浮点误差会把「刚好达标」判成「不达标」。
+ *
+ * 每条证据都带 `by`（lexicon / llm）：P8 接入 LLM 后，会有人命中的证据来自模型判断，
+ * 必须能和词表证据分开显示，否则界面上会出现「命中『滑块』」但原文没有这两个字的破绽。
  */
 
 import { findScenario } from '../../src/contracts/index';
-import type { Courseware, Plan, ScoreBreakdown, SkillId } from '../../src/contracts/index';
+import type {
+  Courseware,
+  Plan,
+  ScoreBreakdown,
+  ShadowedSignal,
+  Signal,
+  SignalKind,
+  SkillId,
+} from '../../src/contracts/index';
 
-const NONE = 0 as const;
+function sig(token: string, kind: SignalKind, points: number): Signal {
+  return { token, kind, points, by: 'lexicon' };
+}
 
-function score(skill: SkillId, value: number, matchedTokens: readonly string[], ignoredTokens: readonly string[] = []): ScoreBreakdown {
-  return { skill, score: value, matchedTokens, ignoredTokens };
+function breakdown(
+  skill: SkillId,
+  score: number,
+  signals: readonly Signal[],
+  shadowed: readonly ShadowedSignal[] = [],
+): ScoreBreakdown {
+  return { skill, score, signals, shadowed };
+}
+
+function zero(skill: SkillId): ScoreBreakdown {
+  return breakdown(skill, 0, []);
 }
 
 /**
  * S1 —— 单 Skill
  * 「画一下 y=2x+1 的图像」
- * 期望：function-plot 0.90（图像 0.5 + y= 0.2 + 画 0.2），其余 0 → single
+ * 期望：function-plot 0.90（图像 50 + y= 20 + 画 20），其余 0 → single
  */
 export const S1_PLAN = {
   type: 'single',
   utterance: findScenario('S1').utterance,
   selected: ['function-plot'],
   scores: [
-    score('function-plot', 0.9, ['图像', 'y=', '画']),
-    score('interactive-slider', NONE, []),
-    score('exercise-choice', NONE, []),
-    score('exercise-input', NONE, []),
+    breakdown('function-plot', 0.9, [sig('图像', 'primary', 50), sig('y=', 'synonym', 20), sig('画', 'synonym', 20)]),
+    zero('interactive-slider'),
+    zero('exercise-choice'),
+    zero('exercise-input'),
   ],
   reason: '只有 function-plot 达到阈值 0.60（0.90），且没有其它 Skill 竞争，单独使用。',
   questions: [],
@@ -41,17 +63,17 @@ export const S1_PLAN = {
  * S2 —— 组合 Skill（题面原例）
  * 「能拖动滑块的一次函数演示」
  * 期望：interactive-slider 1.00 与 function-plot 0.60 同时达标 → combo
- * 注意 0.60 正好压在阈值上：这条用例同时守护「边界值算达标」，不是随手凑的分数。
+ * 注意 0.60 正好压在阈值上：这条用例同时守护「边界值算达标」。
  */
 export const S2_PLAN = {
   type: 'combo',
   utterance: findScenario('S2').utterance,
   selected: ['function-plot', 'interactive-slider'],
   scores: [
-    score('interactive-slider', 1.0, ['拖动', '滑块']),
-    score('function-plot', 0.6, ['一次函数', '演示']),
-    score('exercise-choice', NONE, []),
-    score('exercise-input', NONE, []),
+    breakdown('interactive-slider', 1.0, [sig('拖动', 'primary', 50), sig('滑块', 'primary', 50)]),
+    breakdown('function-plot', 0.6, [sig('一次函数', 'primary', 50), sig('演示', 'intent', 10)]),
+    zero('exercise-choice'),
+    zero('exercise-input'),
   ],
   reason:
     'interactive-slider 1.00 与 function-plot 0.60 同时达标；两者槽位分别是 interaction / visual，' +
@@ -61,9 +83,12 @@ export const S2_PLAN = {
 
 /**
  * S3 —— 冲突（题面「如果两者冲突」）
- * 「出一道一次函数练习题，让学生选答案或者填答案」
+ * 「出一道一次函数练习题，让学生选答案或填答案」
  * 期望：choice 与 input 同分 1.00、同槽位 exercise、且显式互斥 → 平局 → 降级澄清，不生成。
  * function-plot 只有 0.50，低于阈值，被明确排除（拒绝「看起来像答案」的凑数）。
+ *
+ * 两个练习类 Skill 各有一条被遮蔽的证据：`选` ⊂ `选答案`、`填` ⊂ `填答案`，
+ * 同义层不能重复加分。这条正是「遮蔽规则」的真实数据。
  */
 export const S3_PLAN = {
   type: 'conflict',
@@ -78,10 +103,14 @@ export const S3_PLAN = {
       'priority 相同无法裁决，按 CONFLICT_POLICY.tie 降级为澄清，不猜。',
   },
   scores: [
-    score('exercise-choice', 1.0, ['练习题', '选答案'], ['选']),
-    score('exercise-input', 1.0, ['练习题', '填答案'], ['填']),
-    score('function-plot', 0.5, ['一次函数']),
-    score('interactive-slider', NONE, []),
+    breakdown('exercise-choice', 1.0, [sig('练习题', 'primary', 50), sig('选答案', 'primary', 50)], [
+      { token: '选', shadowedBy: '选答案', kind: 'synonym' },
+    ]),
+    breakdown('exercise-input', 1.0, [sig('练习题', 'primary', 50), sig('填答案', 'primary', 50)], [
+      { token: '填', shadowedBy: '填答案', kind: 'synonym' },
+    ]),
+    breakdown('function-plot', 0.5, [sig('一次函数', 'primary', 50)]),
+    zero('interactive-slider'),
   ],
   reason: '练习题题位被两个互斥 Skill 同分抢占，平局不猜，转为澄清提问。',
   questions: [
@@ -107,12 +136,7 @@ export const S4_PLAN = {
   type: 'no_match',
   utterance: findScenario('S4').utterance,
   selected: [],
-  scores: [
-    score('function-plot', NONE, []),
-    score('interactive-slider', NONE, []),
-    score('exercise-choice', NONE, []),
-    score('exercise-input', NONE, []),
-  ],
+  scores: [zero('function-plot'), zero('interactive-slider'), zero('exercise-choice'), zero('exercise-input')],
   reason: '没有任何 Skill 达到阈值 0.60，当前能力集覆盖不了这个需求，因此不生成课件。',
   questions: [
     {

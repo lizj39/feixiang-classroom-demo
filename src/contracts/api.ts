@@ -11,6 +11,7 @@
 
 import type { Courseware } from './ir';
 import type { Plan } from './plan';
+import type { SkillManifest } from './skill';
 import type { Trace } from './trace';
 import type { VerificationReport } from './verification';
 
@@ -53,6 +54,16 @@ export interface GenerateResponse {
 export type UtteranceCheck =
   | { readonly ok: true; readonly utterance: string }
   | { readonly ok: false; readonly code: ApiErrorCode; readonly message: string };
+
+/**
+ * `GET /api/skills` 的响应：把「系统认识哪些能力」直接暴露给界面。
+ * 没有它，注册表的成果只能靠测试证明，页面上看不见。
+ */
+export interface SkillsResponse {
+  readonly apiVersion: typeof API_VERSION;
+  readonly count: number;
+  readonly skills: readonly SkillManifest[];
+}
 
 /**
  * 需求文本的读取与规范化。纯函数，前后端都能用：

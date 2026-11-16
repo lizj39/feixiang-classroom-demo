@@ -13,7 +13,14 @@ import { randomUUID } from 'node:crypto';
 
 import { Router } from 'express';
 
-import { API_VERSION, CONTRACT_VERSION, readUtterance, type GenerateResponse } from '../contracts/index';
+import {
+  API_VERSION,
+  CONTRACT_VERSION,
+  readUtterance,
+  type GenerateResponse,
+  type SkillsResponse,
+} from '../contracts/index';
+import { getSkillRegistry } from './skills/registry';
 
 export interface HealthPayload {
   readonly ok: true;
@@ -40,6 +47,18 @@ export function createApiRouter(): Router {
       contractVersion: CONTRACT_VERSION,
       uptimeSec: Math.round((Date.now() - startedAt) / 1000),
       now: new Date().toISOString(),
+    };
+    res.json(payload);
+  });
+
+  router.get('/skills', (_req, res) => {
+    // 注册表按需创建：万一 manifest 有错，这里会抛 SkillRegistryError，
+    // 由 app.ts 的错误中间件转成 500 信封，而不是启动时整个进程挂掉
+    const registry = getSkillRegistry();
+    const payload: SkillsResponse = {
+      apiVersion: API_VERSION,
+      count: registry.size,
+      skills: registry.all(),
     };
     res.json(payload);
   });

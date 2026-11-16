@@ -12,7 +12,9 @@ import {
   assertNeverPlan,
   firstFailedLayerOf,
   layerRank,
+  scoreFromPoints,
   shouldGenerate,
+  totalPoints,
   type Plan,
   type SkillId,
   type VerificationCheck,
@@ -144,11 +146,38 @@ describe('fixtures：四个场景自己先得是合法的 Plan', () => {
 
   it('S3 的「遮蔽」规则确实被用到：被更强 primary 覆盖的同义词不重复加分', () => {
     const plan = SCENARIO_CASES[2].plan;
+    const choice = scoreOf(plan, 'exercise-choice');
+    const input = scoreOf(plan, 'exercise-input');
+
     // '选' ⊂ '选答案'，'填' ⊂ '填答案'：同一含义不能被两层词表各加一次分
-    expect(scoreOf(plan, 'exercise-choice').ignoredTokens).toEqual(['选']);
-    expect(scoreOf(plan, 'exercise-input').ignoredTokens).toEqual(['填']);
+    expect(choice.shadowed).toEqual([{ token: '选', shadowedBy: '选答案', kind: 'synonym' }]);
+    expect(input.shadowed).toEqual([{ token: '填', shadowedBy: '填答案', kind: 'synonym' }]);
+
     // 50(练习题) + 50(选答案) = 100 分 → 1.00，被遮蔽的 '选' 没有额外贡献
-    expect(scoreOf(plan, 'exercise-choice').score).toBe(100 / 100);
+    expect(totalPoints(choice)).toBe(100);
+    expect(choice.score).toBe(100 / 100);
+  });
+
+  it('每个得分都能由 signals 的分数复算出来（明细不能与结论脱节）', () => {
+    for (const { id, plan } of SCENARIO_CASES) {
+      for (const breakdown of plan.scores) {
+        expect(breakdown.score, `${id} / ${breakdown.skill}`).toBe(scoreFromPoints(totalPoints(breakdown)));
+        expect(breakdown.score).toBeGreaterThanOrEqual(0);
+        expect(breakdown.score).toBeLessThanOrEqual(1);
+      }
+    }
+  });
+
+  it('本阶段的全部证据都来自词表，且分值只有 10 / 20 / 50 三档', () => {
+    // P8 接入 LLM 后这条会扩展成 by: 'llm' + kind: 'capability'；现在守住「没有模型痕迹」
+    for (const { plan } of SCENARIO_CASES) {
+      for (const breakdown of plan.scores) {
+        for (const signal of breakdown.signals) {
+          expect(signal.by).toBe('lexicon');
+          expect([10, 20, 50]).toContain(signal.points);
+        }
+      }
+    }
   });
 
   it('Plan 可无损 JSON 往返（trace 与 API 都依赖这一点）', () => {

@@ -1,7 +1,7 @@
 # SPEC
 
 > 版本：0.1（阶段 0 产出）
-> 对应契约版本：`CONTRACT_VERSION = 0.1.0`
+> 对应契约版本：`CONTRACT_VERSION = 0.2.0`
 > 状态：**规格已定稿，实现未开始**。本文件之后只允许通过「变更记录」修改。
 
 ---
@@ -57,6 +57,18 @@
 
 骨架自检接口，同时证明「页面与 API 同源」。返回 `{ ok, service, contractVersion, uptimeSec, now }`，
 其中 `contractVersion` 取自 `src/contracts`，不硬编码。
+
+### `GET /api/skills`
+
+返回已注册的 Skill 声明（manifest 原样，不含运行时实例）。用于界面展示「系统认识哪些能力」。
+
+```jsonc
+{ "apiVersion": 1, "count": 4, "skills": [ /* SkillManifest[] */ ] }
+```
+
+manifest 在服务端注册，前端只负责渲染 —— 新增一个 Skill 不需要改前端任何代码。
+注册表在创建时做整组校验（id 唯一、互斥对称、requires 无环、namespace 不撞），
+校验失败会以 500 信封返回，而不是带着坏声明继续跑。
 
 ### `POST /api/generate`
 
@@ -116,7 +128,7 @@
 
 1. 归一化：去首尾空格、全角转半角、转小写
 2. 逐 token 做「包含」匹配：命中 `primary` +50，命中 `synonym` +20，命中 `intent` +10
-3. **遮蔽规则**：若命中的 token 是另一条已命中 token 的子串（如 `选` ⊂ `选答案`），该 token 不加分，记入 `ignoredTokens`
+3. **遮蔽规则**：若命中的 token 是另一条已命中 token 的子串（如 `选` ⊂ `选答案`），该 token 不加分，记入 `shadowed`（附带 `shadowedBy`，回答「为什么这个词没加分」）
 4. 封顶 100，展示值 `score = points / 100`
 
 > 为什么用整数累加：`0.5 + 0.1` 在 IEEE754 下等于 `0.6000000000000001`，会让「刚好达标」被判成不达标。`60 / 100` 精确等于 `0.6`，阈值判定才是确定的。
