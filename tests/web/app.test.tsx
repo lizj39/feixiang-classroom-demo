@@ -326,6 +326,41 @@ describe('验证报告（P6）', () => {
   });
 });
 
+describe('故障注入（P7）', () => {
+  it('开启故障时显示横幅，并把 flags 上送服务端', async () => {
+    mockFetch({ generate: async () => jsonResponse(SUCCESS_PAYLOAD) });
+    render(<App bugMode="drop-node" />);
+
+    expect(screen.getByTestId('bug-banner').textContent).toContain('drop-node');
+
+    typeAndSubmit('能拖动滑块的一次函数演示');
+    await screen.findByTestId('receipt');
+
+    const [, init] = postCalls()[0] as [string, RequestInit];
+    expect(JSON.parse(String(init.body))).toEqual({
+      utterance: '能拖动滑块的一次函数演示',
+      flags: { bug: 'drop-node' },
+    });
+  });
+
+  it('纯前端故障不上送（否则服务端 trace 会被无关 flags 干扰）', async () => {
+    mockFetch({ generate: async () => jsonResponse(SUCCESS_PAYLOAD) });
+    render(<App bugMode="unregistered-renderer" />);
+
+    typeAndSubmit('画个图');
+    await screen.findByTestId('receipt');
+
+    const [, init] = postCalls()[0] as [string, RequestInit];
+    expect(JSON.parse(String(init.body))).toEqual({ utterance: '画个图' });
+  });
+
+  it('没有故障参数时不显示横幅', () => {
+    mockFetch();
+    render(<App />);
+    expect(screen.queryByTestId('bug-banner')).toBeNull();
+  });
+});
+
 describe('空输入不发请求', () => {
   it('点生成只给出提示，不发 POST', () => {
     mockFetch();

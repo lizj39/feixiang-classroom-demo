@@ -6,7 +6,7 @@
  * 而是转成带 code 的 ApiRequestError —— 界面上永远能显示一个有意义的错误码。
  */
 
-import type { ApiErrorPayload, GenerateResponse, SkillManifest, SkillsResponse } from '../contracts/index';
+import type { ApiErrorPayload, BugMode, GenerateResponse, SkillManifest, SkillsResponse } from '../contracts/index';
 
 export class ApiRequestError extends Error {
   readonly code: string;
@@ -18,11 +18,15 @@ export class ApiRequestError extends Error {
   }
 }
 
-export async function requestGenerate(utterance: string): Promise<GenerateResponse> {
+export async function requestGenerate(utterance: string, bug?: BugMode | null): Promise<GenerateResponse> {
+  // 只有服务端侧的两个故障上送；渲染器缺失是纯前端问题
+  const requestBody =
+    bug === 'drop-node' || bug === 'break-binding' ? { utterance, flags: { bug } } : { utterance };
+
   const response = await fetch('/api/generate', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ utterance }),
+    body: JSON.stringify(requestBody),
   });
 
   const payload: unknown = await response.json().catch(() => null);

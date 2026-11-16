@@ -14,6 +14,7 @@
 
 import {
   shouldGenerate,
+  type BugMode,
   type Courseware,
   type IrContentNode,
   type IrExerciseNode,
@@ -55,6 +56,11 @@ export interface ComposeInput {
   readonly params?: Readonly<Record<string, number>>;
   /** 写 composer 层 trace。测试里可以省略。 */
   readonly emit?: Emit;
+  /**
+   * 故障注入（演示用）。刻意做成「编排器的 bug」而不是「假数据」：
+   * 产出的 IR 结构本身是合法的，错在它与决策不一致，或绑定指向了不存在的东西。
+   */
+  readonly bug?: BugMode;
 }
 
 interface Resolved {
@@ -180,7 +186,7 @@ function orderByRequires(ids: readonly SkillId[], registry: SkillRegistry): Skil
 }
 
 export function composeCourseware(input: ComposeInput): Courseware | null {
-  const { plan, registry, params = {}, emit } = input;
+  const { plan, registry, params = {}, emit, bug } = input;
 
   if (!shouldGenerate(plan)) return null;
 
@@ -206,7 +212,21 @@ export function composeCourseware(input: ComposeInput): Courseware | null {
 
     if (kind === 'slider') {
       // 没有可绑定的图像就不产出滑块：宁可少一个控件，也不要悬空引用
-      if (plot) nodes.push(buildSlider(manifest, plot));
+      if (!plot) continue;
+
+      // 故障注入 ①：编排器把滑块丢了。决策与日志都说用了两个 Skill，产物里只有一个。
+      if (bug === 'drop-node') continue;
+
+      const slider = buildSlider(manifest, plot);
+
+      // 故障注入 ②：节点都在，但绑定指向了不存在的目标。
+      // 这种故障在 IR 层面结构合法，只有 L2 的绑定检查能抓。
+      if (bug === 'break-binding') {
+        nodes.push({ ...slider, bindTo: { ...slider.bindTo, nodeId: `${slider.bindTo.nodeId}#bug` } });
+        continue;
+      }
+
+      nodes.push(slider);
       continue;
     }
 

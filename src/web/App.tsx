@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 页面骨架：标题条 + 三栏。
  *
  * 三栏是定下来的信息架构，后续阶段只往里面填内容，不再改布局：
@@ -11,13 +11,13 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-import { CONTRACT_VERSION, type SkillManifest } from '../contracts/index';
+import { CONTRACT_VERSION, type BugMode, type SkillManifest } from '../contracts/index';
 import { ApiRequestError, requestGenerate, requestSkills } from './api';
 import { EvidencePanel, PreviewPanel, RequestPanel } from './panels';
 import { isBusy, type Phase } from './phase';
 import { useVerification } from './verify/useVerification';
 
-export function App() {
+export function App({ bugMode = null }: { readonly bugMode?: BugMode | null }) {
   const [utterance, setUtterance] = useState('');
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' });
   // null = 加载中；[] = 加载失败（不阻塞生成流程，只是这块证据缺失）
@@ -54,7 +54,7 @@ export function App() {
 
     setPhase({ kind: 'loading', utterance: trimmed });
     try {
-      const response = await requestGenerate(trimmed);
+      const response = await requestGenerate(trimmed, bugMode);
       setPhase({ kind: 'success', response });
     } catch (error) {
       if (error instanceof ApiRequestError) {
@@ -79,6 +79,15 @@ export function App() {
           <span className={busy ? 'badge badge--busy' : 'badge'}>阶段 6 / 8</span>
         </div>
       </header>
+
+      {bugMode !== null && (
+        <div className="bug-banner" data-testid="bug-banner">
+          <strong>故障注入已开启：<code>{bugMode}</code></strong>
+          <span>
+            这是演示开关，用来稳定复现「日志说调用了、页面却没有」。看右侧验证报告停在哪一层。
+          </span>
+        </div>
+      )}
 
       <main className="app__main">
         <RequestPanel

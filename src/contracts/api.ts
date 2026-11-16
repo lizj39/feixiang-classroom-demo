@@ -20,15 +20,38 @@ export const API_VERSION = 1 as const;
 /** 单条需求的长度上限。前后端共用，避免前端放行、后端 400 的错配。 */
 export const MAX_UTTERANCE_LENGTH = 200;
 
+/**
+ * 故障注入模式。**这是演示开关，不是产品功能**：
+ * 它的存在是为了让「日志说调用了、页面却没有」这类问题可以被稳定复现，
+ * 而不是靠运气遇到。三个模式刻意停在不同层，用来演示「看 trace 停在哪一层」。
+ */
+export const BUG_MODES = [
+  /** 编排器丢掉 slider 节点：决策说用了两个 Skill，产物里只有一个 → L1 抓 */
+  'drop-node',
+  /** 两个节点都在，但 slider 的绑定指向不存在的 plot → L2 抓 */
+  'break-binding',
+  /** IR 有滑块，但渲染注册表没注册 → L3 抓 */
+  'unregistered-renderer',
+] as const;
+
+export type BugMode = (typeof BUG_MODES)[number];
+
 export interface GenerateRequest {
   readonly utterance: string;
+  readonly flags?: {
+    readonly bug?: BugMode;
+  };
+}
+
+export function isBugMode(value: unknown): value is BugMode {
+  return typeof value === 'string' && (BUG_MODES as readonly string[]).includes(value);
 }
 
 /**
  * 错误码是封闭集合：前端可以按 code 分支，而不是靠匹配文案。
  * `field` 只在能定位到具体字段时出现，便于前端把错误挂到输入框上。
  */
-export type ApiErrorCode = 'EMPTY_UTTERANCE' | 'TOO_LONG' | 'INVALID_BODY' | 'NOT_FOUND' | 'INTERNAL';
+export type ApiErrorCode = 'EMPTY_UTTERANCE' | 'TOO_LONG' | 'INVALID_BODY' | 'BAD_FLAG' | 'NOT_FOUND' | 'INTERNAL';
 
 export interface ApiErrorPayload {
   readonly error: {

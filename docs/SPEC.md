@@ -81,7 +81,7 @@ manifest 在服务端注册，前端只负责渲染 —— 新增一个 Skill �
 | 字段 | 约束 |
 |---|---|
 | `utterance` | 必填，折叠空白后长度 1–200，超界返回 400 |
-| `flags.bug` | 仅调试用，`drop-node` / `unregistered-renderer`，默认缺省（阶段 7 接入） |
+| `flags.bug` | 故障注入（演示用）：`drop-node` / `break-binding` / `unregistered-renderer`，默认缺省；非法值返回 400 `BAD_FLAG` |
 
 响应 200
 
@@ -262,6 +262,7 @@ Composer 产出 IR 后、返回前端前必须先过一遍校验（`src/server/i
 | S4 | 帮我准备明天的班会 | `no_match` / 全 0 分 → 澄清，不生成 |
 | F1a | S2 + `flags.bug=drop-node` | L1 pass、L2 fail（IR 缺 slider） |
 | F1b | S2 + `flags.bug=unregistered-renderer` | L1 pass、L2 pass、L3 fail（DOM 无 range） |
+| F1c | S2 + `flags.bug=break-binding` | L1 pass、L2 fail（绑定悬空） |
 
 精确期望值以 `tests/fixtures/scenarios.ts` 为准——**fixtures 是这批数字的唯一事实源**，本文只做说明，不重复维护。
 
@@ -305,3 +306,4 @@ docs/            SPEC（本文件）、CONTRACTS、任务拆分
 | 0.4 | 补充 IR 出站校验规则表与渲染约定（原生 range、path 由参数计算、等比视野、注册表缺项占位） |
 | 0.5 | 补充参数抽取规则与来源标注（来自描述 / 默认值）、超限整条作废 |
 | 0.6 | 补充验证分层执行语义、实际 ruleId 表、L4 驱动 DOM 的做法与边界 |
+| 0.7 | 补充三种故障注入模式与各自的停点（L1 / L2 / L3） |

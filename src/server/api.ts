@@ -1,4 +1,4 @@
-/**
+﻿/**
  * API 路由。
  *
  * /api/health  —— 骨架自检（同源联通证明）
@@ -15,15 +15,17 @@ import { Router } from 'express';
 
 import {
   API_VERSION,
+  BUG_MODES,
   CONTRACT_VERSION,
   buildVerificationReport,
+  isBugMode,
   readUtterance,
   type GenerateResponse,
   type SkillsResponse,
 } from '../contracts/index';
 import { composeCourseware } from './composer/compose';
 import { createRuleIntentParser } from './intent/rule-parser';
-import { validateCourseware } from './ir/validate';
+
 import { route } from './router/route';
 import { getSkillRegistry } from './skills/registry';
 import { createTraceRecorder } from './trace/recorder';
@@ -71,7 +73,7 @@ export function createApiRouter(): Router {
   });
 
   router.post('/generate', async (req, res, next) => {
-    const body = req.body as { utterance?: unknown } | undefined;
+    const body = req.body as { utterance?: unknown; flags?: { bug?: unknown } } | undefined;
     const checked = readUtterance(body?.utterance);
 
     if (!checked.ok) {
@@ -80,6 +82,20 @@ export function createApiRouter(): Router {
       });
       return;
     }
+
+    // 故障注入开关：只接受封闭集合里的值，拼错就 400，避免「以为开了其实没开」
+    const rawBug = body?.flags?.bug;
+    if (rawBug !== undefined && !isBugMode(rawBug)) {
+      res.status(400).json({
+        error: {
+          code: 'BAD_FLAG',
+          message: `未知的故障模式：${String(rawBug)}（可选：${BUG_MODES.join(' / ')}）`,
+          field: 'flags.bug',
+        },
+      });
+      return;
+    }
+    const bug = rawBug;
 
     const requestId = newRequestId();
     const receivedAt = new Date().toISOString();
@@ -97,17 +113,12 @@ export function createApiRouter(): Router {
         // 参数从意图里取：老师说了 y=3x+2，画出来就必须是它
         params: intent.params,
         emit: recorder.emit,
+        ...(bug === undefined ? {} : { bug }),
       });
 
-      // 出站前自检：坏 IR 宁可 500，也不要交给前端去画出一个「看起来对」的东西
-      if (courseware) {
-        const violations = validateCourseware(courseware);
-        if (violations.length > 0) {
-          throw new Error(
-            `课件 IR 校验失败：${violations.map((violation) => `${violation.path} ${violation.message}`).join('；')}`,
-          );
-        }
-      }
+      // 坏 IR 不再直接 500 —— 现在有验证报告可以承载它。
+      // 让问题以「L2 失败 + 具体路径」的形式出现在界面上，比一个 500 更有用：
+      // 前者能被定位和修复，后者只能知道「炸了」。
 
       // 服务端能验 L1/L2；L3/L4 的输入只存在于浏览器
       const checks = [

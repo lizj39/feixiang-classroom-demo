@@ -80,6 +80,37 @@ describe('POST /api/generate 正常路径', () => {
     expect(body.verification?.pendingLayers).toEqual(['L3', 'L4']);
   });
 
+  it('故障注入：drop-node 让 L1 失败，报告指向「决策与产物不一致」', async () => {
+    const res = await postJson({ utterance: '能拖动滑块的一次函数演示', flags: { bug: 'drop-node' } });
+    expect(res.status).toBe(200);
+
+    const body = (await res.json()) as GenerateResponse;
+    expect(body.courseware?.page.children.some((node) => node.kind === 'slider')).toBe(false);
+    expect(body.verification?.firstFailedLayer).toBe('L1');
+    expect(body.verification?.checks.some((check) => check.ruleId === 'L1.route.selected-match' && check.status === 'fail')).toBe(
+      true,
+    );
+  });
+
+  it('故障注入：break-binding 让 L2 失败，L1 仍然通过', async () => {
+    const res = await postJson({ utterance: '能拖动滑块的一次函数演示', flags: { bug: 'break-binding' } });
+    const body = (await res.json()) as GenerateResponse;
+
+    const checks = body.verification?.checks ?? [];
+    expect(checks.find((check) => check.ruleId === 'L1.route.selected-match')?.status).toBe('pass');
+    expect(checks.find((check) => check.ruleId === 'L2.ir.slider-bound')?.status).toBe('fail');
+    expect(body.verification?.firstFailedLayer).toBe('L2');
+  });
+
+  it('未知故障模式 → 400 BAD_FLAG（不能悄悄忽略）', async () => {
+    const res = await postJson({ utterance: '画个图', flags: { bug: 'not-a-mode' } });
+    expect(res.status).toBe(400);
+
+    const body = (await res.json()) as { error: { code: string; field?: string } };
+    expect(body.error.code).toBe('BAD_FLAG');
+    expect(body.error.field).toBe('flags.bug');
+  });
+
   it('不生成时 courseware 为 null（拒绝也是决策的一部分）', async () => {
     const res = await postJson({ utterance: '帮我准备明天的班会' });
     const body = (await res.json()) as GenerateResponse;
