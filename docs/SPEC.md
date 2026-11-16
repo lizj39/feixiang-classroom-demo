@@ -1,7 +1,7 @@
 ﻿# SPEC
 
 > 版本：0.1（阶段 0 产出）
-> 对应契约版本：`CONTRACT_VERSION = 0.3.0`
+> 对应契约版本：`CONTRACT_VERSION = 0.4.0`
 > 状态：**规格已定稿，实现未开始**。本文件之后只允许通过「变更记录」修改。
 
 ---
@@ -190,18 +190,40 @@ LLM 失败时降级回规则版，并在 `degraded.reason` 里留下痕迹。
 | **L3 渲染 / DOM** | 存在 `input[type=range]`；DOM 控件数量与 IR 节点数量一致 | IR 有但没画出来 |
 | **L4 行为** | 拖动后参数变化，且曲线在约定采样点上与公式一致（误差 ≤1px） | 画出来了但没用 |
 
-`ruleId` 命名固定为 `层.对象.断言`：
+`ruleId` 命名固定为 `层.对象.断言`，当前实现：
 
-```
-L1.route.selected-match        L1.route.threshold-respected
-L2.ir.ids-unique               L2.ir.slider-present
-L2.ir.binding-resolves         L2.ir.params-in-range
-L2.ir.exercise-mode-coherent
-L3.dom.range-present           L3.dom.controls-match-ir
-L4.behavior.slider-updates-plot  L4.behavior.exercise-answerable
-```
+| 层 | ruleId | 在哪跑 |
+|---|---|---|
+| L1 | `L1.route.selected-match` | 服务端 |
+| L1 | `L1.route.threshold-respected` | 服务端 |
+| L1 | `L1.route.decision-consistency` | 服务端 |
+| L2 | `L2.ir.courseware-present` | 服务端 |
+| L2 | `L2.ir.produces-present` | 服务端 |
+| L2 | `L2.ir.slider-bound` | 服务端 |
+| L2 | `L2.ir.integrity` | 服务端（汇总 IR 校验的 8 条规则） |
+| L3 | `L3.dom.range-present` | 浏览器 |
+| L3 | `L3.dom.controls-match-ir` | 浏览器 |
+| L4 | `L4.behavior.slider-updates-plot` | 浏览器 |
 
-任何一层失败，下游层标记 `skipped`（不是 `pass`），`firstFailedLayer` 取**最外层**失败。
+### 6.3 分层执行语义
+
+- **分工是硬的**：L1/L2 的输入（plan、IR）只在服务端，L3/L4 的输入（DOM、拖动行为）只在浏览器。
+  强扭在一起只能靠「服务端假装知道 DOM」，那正是题面第 2 问里被骗的做法
+- 服务端返回的报告里，L3/L4 标 `skipped` 并写明「需要浏览器执行」，同时记进 `pendingLayers`
+- 浏览器拿到报告后补完 L3/L4，用**同一个** `buildVerificationReport` 重新汇总 ——
+  避免两边对「哪些层算通过」的判定漂移
+- 上游失败时下游一律 `skipped`（不是 `pass`），`firstFailedLayer` 取**最外层**失败
+- 「没跑」和「通过」在报告里必须分得开：`overall` 只由 `fail` 决定，`pendingLayers` 单独列
+
+### 6.4 L4 为什么真的去驱动 DOM
+
+L4 不是比对「path 变了没有」，而是比对「拖完之后 path 是否等于用新参数算出的路径」。
+实现上真的设置 `input.value` 并派发 `input` 事件，然后读回 `path.d`：
+只有这样才能覆盖「组件没接上 onChange」这类故障；读完立刻复原原值，不留下副作用。
+
+`path.d` 的期望值由 `linePath()` 算出 —— 与渲染器用的是同一个函数。
+这意味着「画错了」不会被 L4 抓到（两边一起错），但「没接上」一定会被抓到。
+这个边界是有意接受的：要抓画错，靠的是 `tests/web/plot-math.test.ts` 里的像素断言。
 
 ### 6.1 IR 出站校验（阶段 4 已实现）
 
@@ -282,3 +304,4 @@ docs/            SPEC（本文件）、CONTRACTS、任务拆分
 | 0.3 | 补充理解层（IntentParser / 归一化 / 能力标签 60 分 / 降级留痕） |
 | 0.4 | 补充 IR 出站校验规则表与渲染约定（原生 range、path 由参数计算、等比视野、注册表缺项占位） |
 | 0.5 | 补充参数抽取规则与来源标注（来自描述 / 默认值）、超限整条作废 |
+| 0.6 | 补充验证分层执行语义、实际 ruleId 表、L4 驱动 DOM 的做法与边界 |

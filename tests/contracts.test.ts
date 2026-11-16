@@ -10,6 +10,7 @@ import {
   VERIFY_LAYER_LABEL,
   VERIFY_LAYERS,
   assertNeverPlan,
+  buildVerificationReport,
   firstFailedLayerOf,
   layerRank,
   scoreFromPoints,
@@ -266,5 +267,68 @@ describe('验证报告：定位到最外层失败', () => {
 
   it('只有 L4 失败时也能报出 L4', () => {
     expect(firstFailedLayerOf([check('L1', 'pass'), check('L4', 'fail')])).toBe('L4');
+  });
+});
+
+describe('验证报告汇总', () => {
+  const make = (layer: VerifyLayer, status: VerificationCheck['status']): VerificationCheck => ({
+    ruleId: `${layer}.demo`,
+    layer,
+    title: `${layer} 演示`,
+    status,
+    evidence: { kind: 'ir-path', detail: layer },
+  });
+
+  it('四层全通过：overall=pass，没有待执行层', () => {
+    const report = buildVerificationReport('req_1', ['L1', 'L2', 'L3', 'L4'].map((layer) => make(layer as VerifyLayer, 'pass')));
+
+    expect(report.overall).toBe('pass');
+    expect(report.firstFailedLayer).toBeNull();
+    expect(report.pendingLayers).toEqual([]);
+    expect(report.summary).toContain('全部通过');
+  });
+
+  it('「没跑」不等于「通过」：skipped 的层单独列进 pendingLayers', () => {
+    const report = buildVerificationReport('req_1', [
+      make('L1', 'pass'),
+      make('L2', 'pass'),
+      make('L3', 'skipped'),
+      make('L4', 'skipped'),
+    ]);
+
+    expect(report.overall).toBe('pass');
+    expect(report.pendingLayers).toEqual(['L3', 'L4']);
+    expect(report.summary).toContain('待执行');
+  });
+
+  it('有失败时 firstFailedLayer 取最外层，overall=fail', () => {
+    const report = buildVerificationReport('req_1', [
+      make('L1', 'pass'),
+      make('L2', 'fail'),
+      make('L3', 'skipped'),
+      make('L4', 'skipped'),
+    ]);
+
+    expect(report.overall).toBe('fail');
+    expect(report.firstFailedLayer).toBe('L2');
+    expect(report.summary).toContain('L2');
+  });
+
+  it('报告里的 checks 原样保留（界面要逐条展示）', () => {
+    const checks = [make('L1', 'pass'), make('L2', 'fail')];
+    expect(buildVerificationReport('req_1', checks).checks).toEqual(checks);
+  });
+
+  it('可以用 summaryOverride 说明「不适用」，而不是说「待执行」', () => {
+    const report = buildVerificationReport(
+      'req_1',
+      [make('L1', 'pass'), make('L2', 'pass'), make('L3', 'skipped'), make('L4', 'skipped')],
+      '本次按规则不生成课件，L3/L4 无需执行',
+    );
+
+    expect(report.summary).toBe('本次按规则不生成课件，L3/L4 无需执行');
+    // 覆盖文案不影响客观字段
+    expect(report.overall).toBe('pass');
+    expect(report.pendingLayers).toEqual(['L3', 'L4']);
   });
 });

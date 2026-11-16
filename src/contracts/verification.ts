@@ -53,6 +53,8 @@ export interface VerificationReport {
   readonly overall: 'pass' | 'fail';
   /** 最外层的失败层。null 表示全部通过。多层失败时必须是数值最小的那一层。 */
   readonly firstFailedLayer: VerifyLayer | null;
+  /** 尚未执行的层（例如服务端返回时 L3/L4 还需要浏览器）。 */
+  readonly pendingLayers: readonly VerifyLayer[];
   /** 一句话结论，直接贴到证据面板顶部。 */
   readonly summary: string;
 }
@@ -71,4 +73,47 @@ export function firstFailedLayerOf(checks: readonly VerificationCheck[]): Verify
     }
   }
   return found;
+}
+
+/**
+ * 由 checks 汇总出报告。服务端与前端共用同一份实现 ——
+ * 否则两边对「哪些层算通过」的判定迟早会漂移。
+ *
+ * 语义：
+ *   - 只要有一项 fail，整份报告 fail，`firstFailedLayer` 取最外层
+ *   - 没有任何 fail 但还有 skipped 层时，报告是 pass，同时把这些层记进 `pendingLayers`，
+ *     summary 会说明「还有几层没跑」——不把「没跑」说成「通过」
+ */
+export function buildVerificationReport(
+  requestId: string,
+  checks: readonly VerificationCheck[],
+  /** 覆盖自动生成的 summary。用于「本次不生成课件」这类不需要走层间语义的场合。 */
+  summaryOverride?: string,
+): VerificationReport {
+  const firstFailedLayer = firstFailedLayerOf(checks);
+  const failed = checks.filter((check) => check.status === 'fail');
+  const executed = new Set(checks.filter((check) => check.status !== 'skipped').map((check) => check.layer));
+  const pendingLayers = VERIFY_LAYERS.filter((layer) => !executed.has(layer));
+  const overall: 'pass' | 'fail' = failed.length > 0 ? 'fail' : 'pass';
+
+  let summary: string;
+  if (summaryOverride !== undefined) {
+    summary = summaryOverride;
+  } else if (firstFailedLayer !== null) {
+    summary = `${VERIFY_LAYER_LABEL[firstFailedLayer]} 失败（${failed.length} 项），其下游层未执行`;
+  } else if (pendingLayers.length > 0) {
+    summary = `已通过 ${[...executed].join(' / ')}，${pendingLayers.map((layer) => VERIFY_LAYER_LABEL[layer]).join('、')} 待执行`;
+  } else {
+    summary = '四层验证全部通过';
+  }
+
+  return {
+    reportVersion: 1,
+    requestId,
+    checks,
+    overall,
+    firstFailedLayer,
+    pendingLayers,
+    summary,
+  };
 }

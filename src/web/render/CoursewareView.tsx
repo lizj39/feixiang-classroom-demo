@@ -6,13 +6,20 @@
  * 这个 bug 只在「连续生成两次」时出现，很容易漏测。
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type RefObject } from 'react';
 
 import type { Courseware } from '../../contracts/index';
 import { NODE_RENDERERS, renderNode, type NodeRenderContext } from './registry';
 import { initialOverrides, resolveParams, withParam } from './state';
 
-export function CoursewareView({ courseware }: { readonly courseware: Courseware }) {
+export function CoursewareView({
+  courseware,
+  containerRef,
+}: {
+  readonly courseware: Courseware;
+  /** 供 L3/L4 验证使用：验证要读的就是这棵真实 DOM。 */
+  readonly containerRef?: RefObject<HTMLDivElement | null> | undefined;
+}) {
   const [overrides, setOverrides] = useState(() => initialOverrides(courseware));
 
   // 关键：换课件要重置。依赖 page 的引用（每次响应都是新对象）
@@ -30,7 +37,7 @@ export function CoursewareView({ courseware }: { readonly courseware: Courseware
   );
 
   return (
-    <div className="courseware" data-testid="courseware" data-page-id={courseware.page.id}>
+    <div className="courseware" data-testid="courseware" data-page-id={courseware.page.id} ref={containerRef}>
       {courseware.page.children.map((node) => (
         <div className="courseware__slot" key={node.id}>
           {renderNode(node, ctx)}

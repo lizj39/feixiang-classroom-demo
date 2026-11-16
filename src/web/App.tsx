@@ -5,14 +5,17 @@
  *   左 = 输入与场景   中 = 产物   右 = 证据
  * 右侧独立成栏是刻意的：面试时「为什么这么选」和「怎么知道生成对了」需要被指着看，
  * 塞在产物下面会被忽略。
+ *
+ * 验证报告的合并在这个层做：课件 DOM 的 ref 由这里持有，L3/L4 需要它。
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { CONTRACT_VERSION, type SkillManifest } from '../contracts/index';
 import { ApiRequestError, requestGenerate, requestSkills } from './api';
 import { EvidencePanel, PreviewPanel, RequestPanel } from './panels';
 import { isBusy, type Phase } from './phase';
+import { useVerification } from './verify/useVerification';
 
 export function App() {
   const [utterance, setUtterance] = useState('');
@@ -20,7 +23,12 @@ export function App() {
   // null = 加载中；[] = 加载失败（不阻塞生成流程，只是这块证据缺失）
   const [skills, setSkills] = useState<readonly SkillManifest[] | null>(null);
 
+  const coursewareRef = useRef<HTMLDivElement | null>(null);
+
   const busy = isBusy(phase);
+  const courseware = phase.kind === 'success' ? phase.response.courseware : null;
+  const serverReport = phase.kind === 'success' ? phase.response.verification : null;
+  const verification = useVerification({ serverReport, courseware, container: coursewareRef });
 
   useEffect(() => {
     let cancelled = false;
@@ -36,7 +44,7 @@ export function App() {
     };
   }, []);
 
-  const submit = useCallback(async () => {
+  const submit = async () => {
     const trimmed = utterance.trim();
 
     if (trimmed.length === 0) {
@@ -55,7 +63,7 @@ export function App() {
         setPhase({ kind: 'error', code: null, message: error instanceof Error ? error.message : String(error) });
       }
     }
-  }, [utterance]);
+  };
 
   return (
     <div className="app" data-testid="app-root">
@@ -68,7 +76,7 @@ export function App() {
           <span className="badge" data-testid="contract-version">
             契约 v{CONTRACT_VERSION}
           </span>
-          <span className={busy ? 'badge badge--busy' : 'badge'}>阶段 2 / 8</span>
+          <span className={busy ? 'badge badge--busy' : 'badge'}>阶段 6 / 8</span>
         </div>
       </header>
 
@@ -81,8 +89,8 @@ export function App() {
             void submit();
           }}
         />
-        <PreviewPanel phase={phase} />
-        <EvidencePanel phase={phase} skills={skills} />
+        <PreviewPanel phase={phase} coursewareRef={coursewareRef} />
+        <EvidencePanel phase={phase} skills={skills} verification={verification} />
       </main>
     </div>
   );

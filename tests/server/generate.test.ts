@@ -73,8 +73,11 @@ describe('POST /api/generate 正常路径', () => {
       expect(slider.range.value).toBe(plot.params.k);
     }
 
-    // 验证报告是 P6 的事，这一阶段仍为 null
-    expect(body.verification).toBeNull();
+    // 服务端只能验 L1/L2，L3/L4 必须由浏览器执行
+    expect(body.verification).not.toBeNull();
+    expect(body.verification?.checks.some((check) => check.layer === 'L1')).toBe(true);
+    expect(body.verification?.checks.some((check) => check.layer === 'L2')).toBe(true);
+    expect(body.verification?.pendingLayers).toEqual(['L3', 'L4']);
   });
 
   it('不生成时 courseware 为 null（拒绝也是决策的一部分）', async () => {
@@ -83,6 +86,11 @@ describe('POST /api/generate 正常路径', () => {
 
     expect(body.plan?.type).toBe('no_match');
     expect(body.courseware).toBeNull();
+    // 不生成时要说明「不适用」，而不是含糊的「待执行」
+    expect(body.verification?.summary).toContain('不生成');
+    expect(body.verification?.checks.filter((check) => check.layer === 'L3').every((check) => check.status === 'skipped')).toBe(
+      true,
+    );
   });
 
   it('trace 由服务端写入：序号连续、分为 router / composer 两层、与 requestId 绑定', async () => {
@@ -92,14 +100,13 @@ describe('POST /api/generate 正常路径', () => {
     const events = body.trace?.events ?? [];
     expect(events.length).toBeGreaterThanOrEqual(4);
     expect(events.map((event) => event.seq)).toEqual(events.map((_, index) => index + 1));
-    expect(new Set(events.map((event) => event.layer))).toEqual(new Set(['router', 'composer']));
+    expect(new Set(events.map((event) => event.layer))).toEqual(new Set(['router', 'composer', 'validator']));
     expect(body.trace?.requestId).toBe(body.requestId);
 
-    // 层顺序必须固定：先决策，再编排
-    const layers = events.map((event) => event.layer);
-    const lastRouter = layers.lastIndexOf('router');
-    const firstComposer = layers.indexOf('composer');
-    expect(firstComposer).toBeGreaterThan(lastRouter);
+    // 层顺序必须单调：先决策，再编排，最后验证
+    const order = ['router', 'composer', 'renderer', 'validator'];
+    const ranks = events.map((event) => order.indexOf(event.layer));
+    expect(ranks).toEqual([...ranks].sort((a, b) => a - b));
 
     for (const event of events) {
       expect(event.decision.length).toBeGreaterThan(0);

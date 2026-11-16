@@ -16,6 +16,7 @@ import { Router } from 'express';
 import {
   API_VERSION,
   CONTRACT_VERSION,
+  buildVerificationReport,
   readUtterance,
   type GenerateResponse,
   type SkillsResponse,
@@ -26,6 +27,7 @@ import { validateCourseware } from './ir/validate';
 import { route } from './router/route';
 import { getSkillRegistry } from './skills/registry';
 import { createTraceRecorder } from './trace/recorder';
+import { browserOnlyChecks, buildServerChecks } from './verify/checks';
 
 export interface HealthPayload {
   readonly ok: true;
@@ -107,6 +109,38 @@ export function createApiRouter(): Router {
         }
       }
 
+      // 服务端能验 L1/L2；L3/L4 的输入只存在于浏览器
+      const checks = [
+        ...buildServerChecks({ plan, courseware, registry }),
+        ...browserOnlyChecks(
+          courseware === null
+            ? '本次不生成课件，没有 DOM 与交互可验'
+            : '需要浏览器执行：DOM 结构与拖动行为只能在客户端验证',
+        ),
+      ];
+      const verification = buildVerificationReport(
+        requestId,
+        checks,
+        courseware === null ? '本次按规则不生成课件，L3/L4 无需执行' : undefined,
+      );
+
+      recorder.emit({
+        layer: 'validator',
+        step: 'verify-l1-l2',
+        input: { planType: plan.type, courseware: courseware !== null },
+        output: {
+          overall: verification.overall,
+          firstFailedLayer: verification.firstFailedLayer,
+          pendingLayers: verification.pendingLayers,
+          failed: checks.filter((check) => check.status === 'fail').map((check) => check.ruleId),
+        },
+        decision: verification.summary,
+        reason:
+          verification.firstFailedLayer === null
+            ? '服务端能验的两层均通过'
+            : `${verification.firstFailedLayer} 失败，下游层标记为待执行`,
+      });
+
       const response: GenerateResponse = {
         apiVersion: API_VERSION,
         requestId,
@@ -115,8 +149,7 @@ export function createApiRouter(): Router {
         plan,
         courseware,
         trace: recorder.toTrace(requestId),
-        // P6 接入四层验证报告
-        verification: null,
+        verification,
       };
       res.json(response);
     } catch (error) {

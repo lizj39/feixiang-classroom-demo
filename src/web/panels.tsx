@@ -7,12 +7,15 @@
  * 以及服务端写的分层 trace。
  */
 
+import type { RefObject } from 'react';
+
 import {
   MAX_UTTERANCE_LENGTH,
   SCENARIOS,
   shouldGenerate,
   type Plan,
   type SkillManifest,
+  type VerificationReport,
 } from '../contracts/index';
 import { CoursewareView } from './render/CoursewareView';
 import type { Phase } from './phase';
@@ -82,7 +85,13 @@ const PLAN_TYPE_LABEL: Record<Plan['type'], string> = {
   no_match: '无匹配',
 };
 
-export function PreviewPanel({ phase }: { readonly phase: Phase }) {
+export function PreviewPanel({
+  phase,
+  coursewareRef,
+}: {
+  readonly phase: Phase;
+  readonly coursewareRef?: RefObject<HTMLDivElement | null>;
+}) {
   return (
     <section className="panel panel--preview" data-testid="preview-panel">
       <h2 className="panel__title">课件预览</h2>
@@ -130,7 +139,9 @@ export function PreviewPanel({ phase }: { readonly phase: Phase }) {
               </span>
             </div>
 
-            {phase.response.courseware !== null && <CoursewareView courseware={phase.response.courseware} />}
+            {phase.response.courseware !== null && (
+              <CoursewareView courseware={phase.response.courseware} containerRef={coursewareRef} />
+            )}
 
             <p className="decision__reason" data-testid="decision-reason">
               {phase.response.plan.reason}
@@ -177,10 +188,13 @@ export function PreviewPanel({ phase }: { readonly phase: Phase }) {
 export function EvidencePanel({
   phase,
   skills,
+  verification,
 }: {
   readonly phase: Phase;
   /** null = 加载中；[] = 加载失败或注册表为空 */
   readonly skills: readonly SkillManifest[] | null;
+  /** 合并后的四层验证报告（L3/L4 由浏览器补上） */
+  readonly verification: VerificationReport | null;
 }) {
   const plan = phase.kind === 'success' ? phase.response.plan : null;
   const trace = phase.kind === 'success' ? phase.response.trace : null;
@@ -268,9 +282,53 @@ export function EvidencePanel({
 
       <div className="block" data-testid="evidence-verification">
         <h3 className="panel__subtitle">验证报告（L1–L4）</h3>
-        <p className="panel__hint">
-          还没接入。P6 会在这里显示：路由选对没有、IR 里真有节点没有、DOM 里真有控件没有、拖动真的重绘没有。
-        </p>
+
+        {verification === null && <p className="panel__hint">还没有请求，所以还没有验证报告。</p>}
+
+        {verification !== null && (
+          <>
+            <p
+              className={
+                verification.overall === 'pass'
+                  ? 'verify-summary verify-summary--pass'
+                  : 'verify-summary verify-summary--fail'
+              }
+              data-testid="verification-summary"
+            >
+              <span aria-hidden>{verification.overall === 'pass' ? '✓' : '✗'}</span> {verification.summary}
+            </p>
+
+            <ul className="verify-list">
+              {verification.checks.map((check) => (
+                <li
+                  key={check.ruleId}
+                  className={`verify-item verify-item--${check.status}`}
+                  data-testid={`verify-${check.ruleId}`}
+                >
+                  <div className="verify-item__head">
+                    <span className="badge">{check.layer}</span>
+                    <code className="mono verify-item__rule">{check.ruleId}</code>
+                    <span className={`verify-status verify-status--${check.status}`}>{check.status}</span>
+                  </div>
+                  <p className="verify-item__title">{check.title}</p>
+                  <p className="verify-item__detail">{check.evidence.detail}</p>
+
+                  {check.status === 'fail' && check.actual !== undefined && (
+                    <p className="verify-item__diff">
+                      期望 <code>{JSON.stringify(check.expected)}</code>
+                      <br />
+                      实际 <code>{JSON.stringify(check.actual)}</code>
+                    </p>
+                  )}
+
+                  {check.blockedReason !== undefined && (
+                    <p className="verify-item__blocked">{check.blockedReason}</p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
       </div>
 
       <div className="block" data-testid="registered-skills">

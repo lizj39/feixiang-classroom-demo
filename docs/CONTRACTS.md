@@ -1,6 +1,6 @@
 # CONTRACTS
 
-> 契约版本 `0.3.0`。代码：`src/contracts/`。
+> 契约版本 `0.4.0`。代码：`src/contracts/`。
 > 规则：**实现依赖契约，契约不依赖实现**。任何一方绕开契约（例如在渲染器里 if 判断 SkillId）都算违规。
 
 五个契约，各自回答一个问题：
@@ -200,6 +200,12 @@ shadowed: [{ token: '选', shadowedBy: '选答案', kind: 'synonym' }]
 - 任何一层 `fail`，下游一律 `skipped`（不是 `pass`）
 - `firstFailedLayer` 取**最外层**（L1 优先于 L4）
 - `status` 只有 `pass / fail / skipped`——不允许「看起来通过」的模糊状态
+- `pendingLayers` 单独记录「还没跑」的层：`overall` 只看 `fail`，不把「没跑」算成「通过」
+
+报告由 `buildVerificationReport(requestId, checks)` 生成，**服务端与前端共用同一份实现**：
+
+- 服务端返回时，L1/L2 是真实结论，L3/L4 标 `skipped` 并进入 `pendingLayers`
+- 浏览器补完 L3/L4 后用同一个函数重新汇总，`checks` 顺序保持 层 → 规则
 
 正例
 

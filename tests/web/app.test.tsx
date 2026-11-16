@@ -13,6 +13,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   CONTRACT_VERSION,
   SCENARIOS,
+  buildVerificationReport,
   findScenario,
   type GenerateResponse,
   type SkillId,
@@ -269,6 +270,59 @@ describe('决策与证据（P3）', () => {
     expect(events).toHaveLength(TRACE.events.length);
     expect(events[0]?.textContent).toContain('parse-intent');
     expect(events[1]?.textContent).toContain('score-skills');
+  });
+});
+
+describe('验证报告（P6）', () => {
+  const report = buildVerificationReport('req_00000000-0000-0000-0000-000000000000', [
+    {
+      ruleId: 'L1.route.selected-match',
+      layer: 'L1',
+      title: '课件里出现的 Skill 与决策声称的一致',
+      status: 'pass',
+      evidence: { kind: 'plan', detail: 'plan.selected' },
+    },
+    {
+      ruleId: 'L2.ir.slider-bound',
+      layer: 'L2',
+      title: '每个滑块都绑定到真实存在的图像节点',
+      status: 'fail',
+      evidence: { kind: 'ir-path', detail: 'page.children[2].bindTo.nodeId' },
+      expected: 0,
+      actual: 1,
+      blockedReason: '绑定目标不存在',
+    },
+    {
+      ruleId: 'L4.behavior.slider-updates-plot',
+      layer: 'L4',
+      title: '拖动滑块后图像按公式重算',
+      status: 'skipped',
+      evidence: { kind: 'behavior', detail: 'L2 未通过' },
+      blockedReason: 'L2 失败，行为验证不再执行',
+    },
+  ]);
+
+  it('显示汇总、逐条检查与失败项的期望/实际', async () => {
+    mockFetch({
+      generate: async () =>
+        jsonResponse({ ...SUCCESS_PAYLOAD, plan: S2_PLAN, courseware: null, verification: report }),
+    });
+    render(<App />);
+    typeAndSubmit('能拖动滑块的一次函数演示');
+
+    const summary = await screen.findByTestId('verification-summary');
+    expect(summary.textContent).toContain('L2');
+    expect(summary.textContent).toContain('失败');
+
+    const failed = screen.getByTestId('verify-L2.ir.slider-bound');
+    expect(failed.textContent).toContain('fail');
+    expect(failed.textContent).toContain('期望');
+    expect(failed.textContent).toContain('绑定目标不存在');
+
+    // 下游层必须是 skipped，不能被算成通过
+    const downstream = screen.getByTestId('verify-L4.behavior.slider-updates-plot');
+    expect(downstream.textContent).toContain('skipped');
+    expect(downstream.textContent).toContain('不再执行');
   });
 });
 
