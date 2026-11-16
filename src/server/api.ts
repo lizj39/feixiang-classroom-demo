@@ -20,7 +20,9 @@ import {
   type GenerateResponse,
   type SkillsResponse,
 } from '../contracts/index';
+import { composeCourseware } from './composer/compose';
 import { createRuleIntentParser } from './intent/rule-parser';
+import { validateCourseware } from './ir/validate';
 import { route } from './router/route';
 import { getSkillRegistry } from './skills/registry';
 import { createTraceRecorder } from './trace/recorder';
@@ -87,6 +89,17 @@ export function createApiRouter(): Router {
       // 理解层目前只有规则版；P8 换成 LLM 版时，这一行之外没有任何改动
       const parser = createRuleIntentParser(registry);
       const plan = await route(checked.utterance, { registry, parser, emit: recorder.emit });
+      const courseware = composeCourseware(plan, registry);
+
+      // 出站前自检：坏 IR 宁可 500，也不要交给前端去画出一个「看起来对」的东西
+      if (courseware) {
+        const violations = validateCourseware(courseware);
+        if (violations.length > 0) {
+          throw new Error(
+            `课件 IR 校验失败：${violations.map((violation) => `${violation.path} ${violation.message}`).join('；')}`,
+          );
+        }
+      }
 
       const response: GenerateResponse = {
         apiVersion: API_VERSION,
@@ -94,9 +107,9 @@ export function createApiRouter(): Router {
         receivedAt,
         utterance: checked.utterance,
         plan,
-        // ↓ 后续阶段的填充点：P4/P5 产出 IR，P6 产出验证报告
-        courseware: null,
+        courseware,
         trace: recorder.toTrace(requestId),
+        // P6 接入四层验证报告
         verification: null,
       };
       res.json(response);

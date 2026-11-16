@@ -190,6 +190,31 @@ L4.behavior.slider-updates-plot  L4.behavior.exercise-answerable
 
 任何一层失败，下游层标记 `skipped`（不是 `pass`），`firstFailedLayer` 取**最外层**失败。
 
+### 6.1 IR 出站校验（阶段 4 已实现）
+
+Composer 产出 IR 后、返回前端前必须先过一遍校验（`src/server/ir/validate.ts`），
+坏 IR 宁可 500，也不交给前端画出一个「看起来对」的东西：
+
+| rule | 抓什么故障 |
+|---|---|
+| `ids-unique` | id 重复 → React key 冲突，后一个覆盖前一个 |
+| `binding-resolves` | `bindTo.nodeId` 悬空 → 滑块能拖，拖的是空气 |
+| `binding-param` | 绑了 `domain` 之类不可绑定的参数 |
+| `params-in-range` / `range-order` / `range-step` | 滑块区间非法 |
+| `initial-value-matches-plot` | 初始值与图像参数不一致 → 一进页面就对不上 |
+| `plot-params-finite` / `plot-domain` | NaN/Infinity 或反向定义域 |
+| `exercise-mode-coherent` / `exercise-answer` | 选择题没选项、填空题带选项、答案不在选项中 |
+
+阶段 6 会把这些结果映射成 `L2.ir.*` 的 ruleId 并写进验证报告；本阶段的 rule 名是内部标识。
+
+### 6.2 渲染约定
+
+- 滑块必须是原生 `input[type=range]`：L3 验证用它作为稳定选择器，不依赖 class 名
+- 图像用 SVG `<path>`，其 `d` 属性由当前参数**计算**得出，便于断言「变对了」而不只是「变了」
+- x / y 使用同一比例尺（y 跨度由画布宽高比反推，纵向中心取 `b`），
+  否则拖动 k 时直线角度会失真
+- 渲染注册表是显式的 `Record<IrContentKind, 渲染器>`，缺项时渲染显式占位符而不是白屏
+
 ---
 
 ## 7. 场景
@@ -242,3 +267,4 @@ docs/            SPEC（本文件）、CONTRACTS、任务拆分
 | 0.1 | 定稿：4 Skill、单阈值 0.60、Plan 四形态、四层验证、L1–L4 ruleId 命名 |
 | 0.2 | 补充传输层信封（`apiVersion` / `requestId` / `receivedAt` / 回声）、错误码表、阶段 1 的 null 约定 |
 | 0.3 | 补充理解层（IntentParser / 归一化 / 能力标签 60 分 / 降级留痕） |
+| 0.4 | 补充 IR 出站校验规则表与渲染约定（原生 range、path 由参数计算、等比视野、注册表缺项占位） |

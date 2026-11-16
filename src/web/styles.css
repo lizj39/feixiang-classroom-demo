@@ -611,6 +611,144 @@ code {
   color: #9a6700;
 }
 
+/* ---------- 课件 ---------- */
+
+.courseware {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
+}
+
+.courseware__slot {
+  display: flex;
+}
+
+.courseware__slot > * {
+  flex: 1;
+}
+
+.cw__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.cw__hint,
+.cw__body {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.plot {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.plot__svg {
+  width: 100%;
+  height: auto;
+  border: 1px solid #eef1f4;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.plot__axis {
+  stroke: #c9d1d9;
+  stroke-width: 1;
+}
+
+.plot__line {
+  stroke: #0969da;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  fill: none;
+}
+
+.plot__caption {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.slider {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fbfcfd;
+}
+
+.slider__label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.slider__value {
+  color: #0969da;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.slider__input {
+  width: 100%;
+  accent-color: #0969da;
+}
+
+.slider__scale {
+  display: flex;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.exercise {
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fbfcfd;
+}
+
+.exercise__prompt {
+  margin: 0 0 8px;
+  font-size: 13px;
+}
+
+.exercise__choices {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.9;
+}
+
+.exercise__blank {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font: inherit;
+}
+
+.missing-renderer {
+  padding: 12px 14px;
+  border: 1px dashed var(--danger);
+  border-radius: 10px;
+  background: var(--danger-weak);
+  color: var(--danger);
+  font-size: 12.5px;
+}
+
 /* ---------- 窄屏降级为单列 ---------- */
 
 @media (max-width: 1180px) {

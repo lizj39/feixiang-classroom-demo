@@ -14,6 +14,7 @@ import {
   type Plan,
   type SkillManifest,
 } from '../contracts/index';
+import { CoursewareView } from './render/CoursewareView';
 import type { Phase } from './phase';
 
 interface RequestPanelProps {
@@ -129,6 +130,8 @@ export function PreviewPanel({ phase }: { readonly phase: Phase }) {
               </span>
             </div>
 
+            {phase.response.courseware !== null && <CoursewareView courseware={phase.response.courseware} />}
+
             <p className="decision__reason" data-testid="decision-reason">
               {phase.response.plan.reason}
             </p>
@@ -159,9 +162,11 @@ export function PreviewPanel({ phase }: { readonly phase: Phase }) {
               </div>
             )}
 
-            <p className="panel__hint">
-              课件渲染在 P4 接入：这一步已经确定了用哪个 Skill、参数怎么绑，但还没有画出可操作的界面。
-            </p>
+            {phase.response.courseware === null && (
+              <p className="panel__hint">
+                这次没有产出课件（决策为「不生成」）。系统选择先问清楚，而不是猜一个看起来像答案的东西。
+              </p>
+            )}
           </div>
         )}
       </div>

@@ -54,15 +54,35 @@ describe('POST /api/generate 正常路径', () => {
     expect(Number.isNaN(Date.parse(body.receivedAt))).toBe(false);
   });
 
-  it('plan 与 trace 已是真实数据；courseware / verification 仍为 null（P4 / P6 接入）', async () => {
+  it('S2 返回真实课件：IR 里有 slider，且绑定到 plot', async () => {
     const res = await postJson({ utterance: '能拖动滑块的一次函数演示' });
     const body = (await res.json()) as GenerateResponse;
 
-    expect(body.plan).not.toBeNull();
     expect(body.plan?.type).toBe('combo');
     expect(body.plan?.scores).toHaveLength(4);
-    expect(body.courseware).toBeNull();
+    expect(body.courseware).not.toBeNull();
+
+    const children = body.courseware?.page.children ?? [];
+    const plot = children.find((node) => node.kind === 'plot');
+    const slider = children.find((node) => node.kind === 'slider');
+    expect(plot).toBeDefined();
+    expect(slider).toBeDefined();
+
+    if (slider?.kind === 'slider' && plot?.kind === 'plot') {
+      expect(slider.bindTo.nodeId).toBe(plot.id);
+      expect(slider.range.value).toBe(plot.params.k);
+    }
+
+    // 验证报告是 P6 的事，这一阶段仍为 null
     expect(body.verification).toBeNull();
+  });
+
+  it('不生成时 courseware 为 null（拒绝也是决策的一部分）', async () => {
+    const res = await postJson({ utterance: '帮我准备明天的班会' });
+    const body = (await res.json()) as GenerateResponse;
+
+    expect(body.plan?.type).toBe('no_match');
+    expect(body.courseware).toBeNull();
   });
 
   it('trace 由服务端写入：序号连续、层为 router、与 requestId 绑定', async () => {

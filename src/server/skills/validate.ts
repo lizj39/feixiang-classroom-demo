@@ -11,14 +11,9 @@
  */
 
 import { IR_CONTENT_KINDS, SKILL_IDS, SKILL_SLOTS } from '../../contracts/index';
+import type { Violation } from '../validation/violation';
 
-export interface Violation {
-  /** 例如 `manifests[1].triggers.primary[0]` */
-  readonly path: string;
-  /** 稳定的规则名，便于测试与统计 */
-  readonly rule: string;
-  readonly message: string;
-}
+export type { Violation };
 
 const NAMESPACE_PATTERN = /^[a-z][a-z0-9-]*$/;
 const PARAM_TYPES = ['number', 'string', 'enum', 'boolean'] as const;

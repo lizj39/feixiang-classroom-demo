@@ -76,7 +76,11 @@ export const SKILL_MANIFESTS: readonly SkillManifest[] = [
     requires: [],
     // 同一个题位只能有一种作答方式
     conflictsWith: ['exercise-input'],
-    params: [{ name: 'optionCount', type: 'number', default: 4, min: 2, max: 6, description: '选项个数' }],
+    params: [
+      // 作答方式写进声明而不是靠 skillId 判断：Composer 只读参数，不做 id 分支
+      { name: 'mode', type: 'enum', values: ['choice'], default: 'choice', description: '作答方式' },
+      { name: 'optionCount', type: 'number', default: 4, min: 2, max: 6, description: '选项个数' },
+    ],
   },
   {
     id: 'exercise-input',
@@ -93,6 +97,9 @@ export const SKILL_MANIFESTS: readonly SkillManifest[] = [
     produces: ['exercise'],
     requires: [],
     conflictsWith: ['exercise-choice'],
-    params: [{ name: 'blankCount', type: 'number', default: 1, min: 1, max: 5, description: '填空个数' }],
+    params: [
+      { name: 'mode', type: 'enum', values: ['input'], default: 'input', description: '作答方式' },
+      { name: 'blankCount', type: 'number', default: 1, min: 1, max: 5, description: '填空个数' },
+    ],
   },
 ];
