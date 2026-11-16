@@ -15,11 +15,15 @@ import {
   MAX_SCORE_POINTS,
   MAX_UTTERANCE_LENGTH,
   SCENARIOS,
+  VERIFY_LAYERS,
+  VERIFY_LAYER_LABEL,
   shouldGenerate,
   totalPoints,
   type Plan,
   type SkillManifest,
+  type VerificationCheck,
   type VerificationReport,
+  type VerifyLayer,
 } from '../contracts/index';
 import { CoursewareView } from './render/CoursewareView';
 import type { Phase } from './phase';
@@ -162,6 +166,25 @@ export function RequestPanel({
     </section>
   );
 }
+
+/** 单层状态：有失败即失败；全跳过即未执行。 */
+function layerStatusOf(
+  checks: readonly VerificationCheck[],
+  layer: VerifyLayer,
+): 'pass' | 'fail' | 'skipped' | 'none' {
+  const own = checks.filter((check) => check.layer === layer);
+  if (own.length === 0) return 'none';
+  if (own.some((check) => check.status === 'fail')) return 'fail';
+  if (own.some((check) => check.status === 'pass')) return 'pass';
+  return 'skipped';
+}
+
+const LAYER_STATUS_LABEL: Record<ReturnType<typeof layerStatusOf>, string> = {
+  pass: '通过',
+  fail: '失败',
+  skipped: '未执行',
+  none: '—',
+};
 
 const PLAN_TYPE_LABEL: Record<Plan['type'], string> = {
   single: '单 Skill',
@@ -349,7 +372,13 @@ export function EvidencePanel({
                 >
                   <td className="mono score-row__skill">{breakdown.skill}</td>
                   <td className="score-row__value">
-                    {breakdown.score.toFixed(2)}
+                    <span className="score-row__score">{breakdown.score.toFixed(2)}</span>
+                    <span className="score-bar" aria-hidden="true">
+                      <span
+                        className="score-bar__fill"
+                        style={{ width: `${Math.round(breakdown.score * 100)}%` }}
+                      />
+                    </span>
                     {totalPoints(breakdown) > MAX_SCORE_POINTS && (
                       <span
                         className="score-row__cap"
@@ -423,6 +452,23 @@ export function EvidencePanel({
 
         {verification !== null && (
           <>
+            <div className="layer-strip" data-testid="layer-strip">
+              {VERIFY_LAYERS.map((layer) => {
+                const status = layerStatusOf(verification.checks, layer);
+                return (
+                  <span
+                    key={layer}
+                    className={`layer-chip layer-chip--${status}`}
+                    title={`${VERIFY_LAYER_LABEL[layer]}：${LAYER_STATUS_LABEL[status]}`}
+                    data-testid={`layer-chip-${layer}`}
+                  >
+                    <span className="layer-chip__id">{layer}</span>
+                    <span className="layer-chip__status">{LAYER_STATUS_LABEL[status]}</span>
+                  </span>
+                );
+              })}
+            </div>
+
             <p
               className={
                 verification.overall === 'pass'

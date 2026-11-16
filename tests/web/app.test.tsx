@@ -1,4 +1,4 @@
-﻿// @vitest-environment jsdom
+// @vitest-environment jsdom
 /**
  * 界面验收：三栏存在、空输入不请求、点生成能观察到 loading、
  * 请求体正确且只发一次、错误以 code + message 呈现、已注册 Skill 能显示出来。
@@ -323,6 +323,11 @@ describe('验证报告（P6）', () => {
 
     // 顶栏徽标让人不用滚到右栏底部就知道结果
     expect(screen.getByTestId('header-verification').textContent).toContain('L2 失败');
+
+    // 分层状态条：一眼看出哪一层红、哪一层没跑
+    expect(screen.getByTestId('layer-chip-L1').textContent).toContain('通过');
+    expect(screen.getByTestId('layer-chip-L2').textContent).toContain('失败');
+    expect(screen.getByTestId('layer-chip-L4').textContent).toContain('未执行');
 
     const failed = screen.getByTestId('verify-L2.ir.slider-bound');
     expect(failed.textContent).toContain('fail');
