@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 场景 fixtures（契约的期望值，不是实现的产物）
  *
  * 这些对象在 P3 实现 Router 之前先写好，Router 的验收标准就是「跑出来的结果等于这里」。
@@ -9,6 +9,7 @@
  * 阈值判定不会因为 0.1 + 0.2 !== 0.3 这类误差把「刚好达标」判成「不达标」。
  */
 
+import { findScenario } from '../../src/contracts/index';
 import type { Courseware, Plan, ScoreBreakdown, SkillId } from '../../src/contracts/index';
 
 const NONE = 0 as const;
@@ -24,7 +25,7 @@ function score(skill: SkillId, value: number, matchedTokens: readonly string[], 
  */
 export const S1_PLAN = {
   type: 'single',
-  utterance: '画一下 y=2x+1 的图像',
+  utterance: findScenario('S1').utterance,
   selected: ['function-plot'],
   scores: [
     score('function-plot', 0.9, ['图像', 'y=', '画']),
@@ -44,7 +45,7 @@ export const S1_PLAN = {
  */
 export const S2_PLAN = {
   type: 'combo',
-  utterance: '能拖动滑块的一次函数演示',
+  utterance: findScenario('S2').utterance,
   selected: ['function-plot', 'interactive-slider'],
   scores: [
     score('interactive-slider', 1.0, ['拖动', '滑块']),
@@ -66,7 +67,7 @@ export const S2_PLAN = {
  */
 export const S3_PLAN = {
   type: 'conflict',
-  utterance: '出一道一次函数练习题，让学生选答案或者填答案',
+  utterance: findScenario('S3').utterance,
   selected: ['exercise-choice', 'exercise-input'],
   resolution: {
     kind: 'degrade-to-clarify',
@@ -104,7 +105,7 @@ export const S3_PLAN = {
  */
 export const S4_PLAN = {
   type: 'no_match',
-  utterance: '帮我准备明天的班会',
+  utterance: findScenario('S4').utterance,
   selected: [],
   scores: [
     score('function-plot', NONE, []),

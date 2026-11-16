@@ -1,15 +1,19 @@
 /**
- * 骨架阶段唯一真实的接口。
+ * API 路由。
  *
- * 它存在的意义不是「健康检查」这个功能本身，而是证明三件事：
- *  1. 页面和 API 同源同端口（前端可以直接 fetch 相对路径，不需要 CORS 配置）；
- *  2. 服务端能读到契约版本（contracts 是唯一事实源，不是硬编码的字符串）；
- *  3. 集成测试可以不起真实端口地验证路由（createApiApp 不绑定端口）。
+ * /api/health  —— 骨架自检（同源联通证明）
+ * /api/generate —— 生成入口。P1-2 只做信封骨架：校验输入、回 requestId 与回声，
+ *                  plan / courseware / trace / verification 一律 null。
+ *
+ * 为什么现在不返回课件：一旦这里返回写死的内容，后面接真路由时就分不清哪些是编的。
+ * 有一条测试专门守着「这四个字段必须为 null」，等 P3 接上真实内容时再改那条断言。
  */
+
+import { randomUUID } from 'node:crypto';
 
 import { Router } from 'express';
 
-import { CONTRACT_VERSION } from '../contracts/index';
+import { API_VERSION, CONTRACT_VERSION, readUtterance, type GenerateResponse } from '../contracts/index';
 
 export interface HealthPayload {
   readonly ok: true;
@@ -20,6 +24,10 @@ export interface HealthPayload {
 }
 
 export const SERVICE_NAME = 'feixiang-classroom-demo';
+
+export function newRequestId(): string {
+  return `req_${randomUUID()}`;
+}
 
 export function createApiRouter(): Router {
   const router = Router();
@@ -34,6 +42,31 @@ export function createApiRouter(): Router {
       now: new Date().toISOString(),
     };
     res.json(payload);
+  });
+
+  router.post('/generate', (req, res) => {
+    const body = req.body as { utterance?: unknown } | undefined;
+    const checked = readUtterance(body?.utterance);
+
+    if (!checked.ok) {
+      res.status(400).json({
+        error: { code: checked.code, message: checked.message, field: 'utterance' },
+      });
+      return;
+    }
+
+    const response: GenerateResponse = {
+      apiVersion: API_VERSION,
+      requestId: newRequestId(),
+      receivedAt: new Date().toISOString(),
+      utterance: checked.utterance,
+      // ↓ 这四个字段是后续阶段的填充点，P1-2 阶段保持 null
+      plan: null,
+      courseware: null,
+      trace: null,
+      verification: null,
+    };
+    res.json(response);
   });
 
   return router;

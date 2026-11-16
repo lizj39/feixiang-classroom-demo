@@ -68,14 +68,17 @@
 
 | 字段 | 约束 |
 |---|---|
-| `utterance` | 去空格后长度 1–200，超界返回 400 |
-| `flags.bug` | 仅调试用，`drop-node` / `unregistered-renderer`，默认缺省 |
+| `utterance` | 必填，折叠空白后长度 1–200，超界返回 400 |
+| `flags.bug` | 仅调试用，`drop-node` / `unregistered-renderer`，默认缺省（阶段 7 接入） |
 
 响应 200
 
 ```jsonc
 {
-  "requestId": "req_...",
+  "apiVersion": 1,
+  "requestId": "req_<uuid>",
+  "receivedAt": "ISO 时间",
+  "utterance": "归一化后的需求回声",
   "plan": { /* Plan 契约，见 CONTRACTS.md */ },
   "courseware": { /* Courseware，或 null（不生成时） */ },
   "trace": { /* 服务端写入的分层事件 */ },
@@ -85,12 +88,25 @@
 
 - `courseware` 为 `null` 当且仅当 `shouldGenerate(plan) === false`
 - L3/L4 只能由浏览器验证（DOM 与行为），前端完成后再与 L1/L2 合并成最终报告
+- **阶段 1 的临时约定**：`plan` / `courseware` / `trace` / `verification` 一律为 `null`，
+  由 `tests/server/generate.test.ts` 守着。P3 起逐个填充，信封结构不变
 
-错误 400
+错误码（封闭集合，前端按 `code` 分支而不是匹配文案）
+
+| code | HTTP | 触发条件 |
+|---|---|---|
+| `EMPTY_UTTERANCE` | 400 | 字段缺失，或折叠空白后为空 |
+| `TOO_LONG` | 400 / 413 | 超过 200 字符，或请求体超过 32kb |
+| `INVALID_BODY` | 400 | `utterance` 不是字符串，或请求体不是合法 JSON |
+| `NOT_FOUND` | 404 | 未知接口 |
+| `INTERNAL` | 500 | 未预期的服务端错误 |
 
 ```jsonc
-{ "error": { "code": "EMPTY_UTTERANCE" | "TOO_LONG" | "BAD_FLAG", "message": "...", "field": "utterance" } }
+{ "error": { "code": "EMPTY_UTTERANCE", "message": "请先输入需求", "field": "utterance" } }
 ```
+
+> 「字段缺失」与「空字符串」都归为 `EMPTY_UTTERANCE`：对老师来说是同一件事（没说要什么），
+> 分开报错只会让前端多写一个无意义的分支。
 
 ---
 
@@ -198,3 +214,4 @@ docs/            SPEC（本文件）、CONTRACTS、任务拆分
 | 版本 | 变更 |
 |---|---|
 | 0.1 | 定稿：4 Skill、单阈值 0.60、Plan 四形态、四层验证、L1–L4 ruleId 命名 |
+| 0.2 | 补充传输层信封（`apiVersion` / `requestId` / `receivedAt` / 回声）、错误码表、阶段 1 的 null 约定 |

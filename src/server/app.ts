@@ -11,8 +11,9 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 
-import express, { type Express } from 'express';
+import express, { type Express, type NextFunction, type Request, type Response } from 'express';
 
+import type { ApiErrorCode } from '../contracts/index';
 import { createApiRouter } from './api';
 
 export interface AppOptions {
@@ -26,7 +27,7 @@ export function createApiApp(): Express {
   // 不暴露 Express 指纹：这是交付给外部看的服务，少一条可被扫描的信息
   app.disable('x-powered-by');
 
-  // 之后的 /api/generate 只收一个小 JSON，32kb 足够，顺便挡住明显的超大请求
+  // /api/generate 只收一个小 JSON，32kb 足够，顺便挡住明显的超大请求
   app.use(express.json({ limit: '32kb' }));
 
   app.use('/api', createApiRouter());
@@ -38,6 +39,23 @@ export function createApiApp(): Express {
       error: {
         code: 'NOT_FOUND',
         message: `未知接口 ${req.method} ${req.originalUrl}`,
+      },
+    });
+  });
+
+  // express.json() 抛出的一切错误（非法 JSON、超体积）都要转成统一信封。
+  // 不加这层的话 Express 会返回 HTML 错误页，前端 JSON.parse 得到的是语法错误，
+  // 真正的原因（比如请求体损坏）就被掩盖了。
+  app.use('/api', (error: unknown, _req: Request, res: Response, _next: NextFunction) => {
+    const status = httpStatusOf(error);
+    const code: ApiErrorCode = status === 413 ? 'TOO_LONG' : status === 400 ? 'INVALID_BODY' : 'INTERNAL';
+    if (status >= 500) {
+      console.error('[api] 未处理的服务端错误:', error);
+    }
+    res.status(status).json({
+      error: {
+        code,
+        message: messageOf(error, status),
       },
     });
   });
@@ -71,4 +89,21 @@ export function mountStatic(app: Express, staticDir: string): void {
     }
     res.sendFile(indexHtml);
   });
+}
+
+function httpStatusOf(error: unknown): number {
+  if (typeof error === 'object' && error !== null && 'status' in error) {
+    const status = Number((error as { status?: unknown }).status);
+    if (Number.isInteger(status) && status >= 400 && status < 600) {
+      return status;
+    }
+  }
+  return 500;
+}
+
+function messageOf(error: unknown, status: number): string {
+  if (status === 413) return '请求体过大';
+  if (status === 400) return '请求体不是合法的 JSON';
+  if (error instanceof Error) return error.message;
+  return '服务端内部错误';
 }
