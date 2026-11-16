@@ -85,15 +85,21 @@ describe('POST /api/generate 正常路径', () => {
     expect(body.courseware).toBeNull();
   });
 
-  it('trace 由服务端写入：序号连续、层为 router、与 requestId 绑定', async () => {
+  it('trace 由服务端写入：序号连续、分为 router / composer 两层、与 requestId 绑定', async () => {
     const res = await postJson({ utterance: '能拖动滑块的一次函数演示' });
     const body = (await res.json()) as GenerateResponse;
 
     const events = body.trace?.events ?? [];
     expect(events.length).toBeGreaterThanOrEqual(4);
     expect(events.map((event) => event.seq)).toEqual(events.map((_, index) => index + 1));
-    expect(new Set(events.map((event) => event.layer))).toEqual(new Set(['router']));
+    expect(new Set(events.map((event) => event.layer))).toEqual(new Set(['router', 'composer']));
     expect(body.trace?.requestId).toBe(body.requestId);
+
+    // 层顺序必须固定：先决策，再编排
+    const layers = events.map((event) => event.layer);
+    const lastRouter = layers.lastIndexOf('router');
+    const firstComposer = layers.indexOf('composer');
+    expect(firstComposer).toBeGreaterThan(lastRouter);
 
     for (const event of events) {
       expect(event.decision.length).toBeGreaterThan(0);

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 路由：一句话 → Plan。这是题面第 1 问的答案所在。
  *
  * 六个步骤，每步都写一条 trace，任何一步的结论都能回查：
@@ -21,7 +21,7 @@ import {
   type SkillId,
   type SkillManifest,
 } from '../../contracts/index';
-import type { IntentParser } from '../../contracts/index';
+import type { IntentParser, ParsedIntent } from '../../contracts/index';
 import type { SkillRegistry } from '../skills/registry';
 import type { Emit } from '../trace/recorder';
 import { detectConflicts, resolveConflicts } from './conflict';
@@ -36,7 +36,13 @@ export interface RouteDeps {
   readonly emit: Emit;
 }
 
-export async function route(utterance: string, deps: RouteDeps): Promise<Plan> {
+/** 路由产物：决策 + 解析出的意图。意图要交给 Composer 取参数，所以必须一起返回。 */
+export interface RouteOutcome {
+  readonly plan: Plan;
+  readonly intent: ParsedIntent;
+}
+
+export async function route(utterance: string, deps: RouteDeps): Promise<RouteOutcome> {
   const { registry, parser, emit } = deps;
 
   // 1. 解析意图
@@ -108,7 +114,7 @@ export async function route(utterance: string, deps: RouteDeps): Promise<Plan> {
   const conflicts = detectConflicts(closed);
 
   if (closed.length === 0) {
-    return noMatchPlan(intent.utterance, scores);
+    return { plan: noMatchPlan(intent.utterance, scores), intent };
   }
 
   if (conflicts.length === 0) {
@@ -122,9 +128,11 @@ export async function route(utterance: string, deps: RouteDeps): Promise<Plan> {
     });
 
     const [only] = closed;
-    return closed.length === 1 && only
-      ? singlePlan(intent.utterance, scores, only, intent.parser)
-      : comboPlan(intent.utterance, scores, closed, intent.parser);
+    const plan =
+      closed.length === 1 && only
+        ? singlePlan(intent.utterance, scores, only, intent.parser)
+        : comboPlan(intent.utterance, scores, closed, intent.parser);
+    return { plan, intent };
   }
 
   const resolution = resolveConflicts(closed, conflicts);
@@ -141,7 +149,7 @@ export async function route(utterance: string, deps: RouteDeps): Promise<Plan> {
     reason: resolution.reason,
   });
 
-  return conflictPlan(intent.utterance, scores, closed, resolution);
+  return { plan: conflictPlan(intent.utterance, scores, closed, resolution), intent };
 }
 
 function resolveManifests(scores: readonly ScoreBreakdown[], registry: SkillRegistry): SkillManifest[] {

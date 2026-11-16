@@ -25,6 +25,11 @@ export interface ParsedIntent {
   readonly matchedTokens: readonly string[];
   /** LLM 判定的能力。规则版恒为空数组。 */
   readonly capabilities: readonly SkillId[];
+  /**
+   * 从需求里读出的数值参数，键名与 manifest 的 param name 对齐（如 `k` / `b`）。
+   * 空对象表示「没读到」，下游会用默认值并**在界面上标注**，不假装听懂了。
+   */
+  readonly params: Readonly<Record<string, number>>;
   readonly parser: 'rule' | 'llm';
   /** LLM 的标准化复述，仅用于展示与 trace；不参与打分。 */
   readonly normalized?: string;
@@ -39,5 +44,5 @@ export interface IntentParser {
 
 /** 空意图：什么都没命中。S4 这类场景会走到这里。 */
 export function emptyIntent(utterance: string, parser: 'rule' | 'llm'): ParsedIntent {
-  return { utterance, matchedTokens: [], capabilities: [], parser };
+  return { utterance, matchedTokens: [], capabilities: [], params: {}, parser };
 }

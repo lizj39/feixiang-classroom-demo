@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 契约统一出口。
  *
  * 五个业务契约：
@@ -16,7 +16,7 @@
  * 契约版本独立于应用版本：契约一改就要动 fixtures，所以显式记录。
  */
 
-export const CONTRACT_VERSION = '0.2.0' as const;
+export const CONTRACT_VERSION = '0.3.0' as const;
 
 export * from './ir';
 export * from './skill';

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 路由的验收：四个场景必须与 fixtures 一致，边界与降级路径单独覆盖。
  *
  * 比对方式刻意只比「语义字段」（类型 / 选中集合 / 每个 Skill 的分数与证据 / 是否生成 /
@@ -30,7 +30,7 @@ async function routeWith(
   deps: { registry?: SkillRegistry; parser?: ReturnType<typeof createRuleIntentParser> } = {},
 ) {
   const recorder = createTraceRecorder();
-  const plan = await route(utterance, {
+  const { plan } = await route(utterance, {
     registry: deps.registry ?? registry,
     parser: deps.parser ?? parser,
     emit: recorder.emit,
@@ -215,6 +215,7 @@ describe('LLM 能力通道接进路由', () => {
         utterance,
         matchedTokens: [],
         capabilities: ['function-plot', 'interactive-slider'],
+        params: {},
         parser: 'llm',
         normalized: '一次函数图像 + 可拖动滑块',
       }),

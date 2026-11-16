@@ -1,6 +1,6 @@
 # CONTRACTS
 
-> 契约版本 `0.2.0`。代码：`src/contracts/`。
+> 契约版本 `0.3.0`。代码：`src/contracts/`。
 > 规则：**实现依赖契约，契约不依赖实现**。任何一方绕开契约（例如在渲染器里 if 判断 SkillId）都算违规。
 
 五个契约，各自回答一个问题：
@@ -227,11 +227,27 @@ interface ParsedIntent {
   utterance: string;              // 归一化后
   matchedTokens: readonly string[];   // 词表在原文里真的匹配到的词
   capabilities: readonly SkillId[];   // LLM 判定的能力（规则版恒为空）
+  params: Record<string, number>;     // 从需求里读出的数值参数（k / b …）
   parser: 'rule' | 'llm';
   normalized?: string;            // LLM 的标准化复述，仅展示
   degraded?: { reason: string };  // LLM 失败降级的原因
 }
 ```
+
+`params` 是「老师说什么函数就画什么函数」的关键：键名与 manifest 的 `param name` 对齐，
+Composer 用它覆盖默认值。抽不到就是空对象 —— **由 Composer 用默认值并在课件里标注
+「使用默认值（未从需求中识别）」**，绝不假装听懂。
+
+参数来源必须能被区分，界面上写清楚：
+
+| 来源 | 表现 |
+|---|---|
+| `utterance` | 「参数 k = 3、b = 2 来自你的描述。」 |
+| `default` | 「参数 k = 2、b = 1 使用默认值（未从需求中识别）。」 |
+| 混合 | 两段拼起来，分别标注 |
+
+超出 `MAX_PARAM_ABS = 100` 的值会让**整条公式作废**并写进 trace，而不是只接受一半 ——
+「斜率是默认值、截距是读到的」比直接说「没读懂」更糟。
 
 三条约束：
 

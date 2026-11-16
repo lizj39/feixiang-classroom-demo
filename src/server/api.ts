@@ -88,8 +88,14 @@ export function createApiRouter(): Router {
 
       // 理解层目前只有规则版；P8 换成 LLM 版时，这一行之外没有任何改动
       const parser = createRuleIntentParser(registry);
-      const plan = await route(checked.utterance, { registry, parser, emit: recorder.emit });
-      const courseware = composeCourseware(plan, registry);
+      const { plan, intent } = await route(checked.utterance, { registry, parser, emit: recorder.emit });
+      const courseware = composeCourseware({
+        plan,
+        registry,
+        // 参数从意图里取：老师说了 y=3x+2，画出来就必须是它
+        params: intent.params,
+        emit: recorder.emit,
+      });
 
       // 出站前自检：坏 IR 宁可 500，也不要交给前端去画出一个「看起来对」的东西
       if (courseware) {

@@ -12,7 +12,7 @@ import { scoreAll, scoreSkill, SIGNAL_POINTS } from '../../src/server/router/sco
 import { SKILL_MANIFESTS } from '../../src/server/skills/manifests';
 
 function intentOf(overrides: Partial<ParsedIntent> = {}): ParsedIntent {
-  return { utterance: 'x', matchedTokens: [], capabilities: [], parser: 'rule', ...overrides };
+  return { utterance: 'x', matchedTokens: [], capabilities: [], params: {}, parser: 'rule', ...overrides };
 }
 
 function manifestOf(id: SkillManifest['id']): SkillManifest {

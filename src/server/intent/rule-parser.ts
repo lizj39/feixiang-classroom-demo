@@ -10,6 +10,7 @@
 
 import type { IntentParser, ParsedIntent } from '../../contracts/index';
 import type { SkillRegistry } from '../skills/registry';
+import { extractParams } from './extract-params';
 import { normalizeForMatching } from './normalize';
 
 export function createRuleIntentParser(registry: SkillRegistry): IntentParser {
@@ -41,6 +42,7 @@ export function createRuleIntentParser(registry: SkillRegistry): IntentParser {
         matchedTokens,
         // 规则版永远不产出能力标签：那个字段是给 LLM 用的
         capabilities: [],
+        params: extractParams(utterance).values,
         parser: 'rule',
       };
     },
