@@ -1,0 +1,16 @@
+# 依赖与产物
+node_modules/
+.npm-cache/
+dist/
+coverage/
+
+# 环境与本地文件
+.env
+.env.*
+*.log
+.DS_Store
+Thumbs.db
+
+# 会话材料：不随仓库公开（锚定根目录，避免连带忽略 docs/ 下的同名文档）
+/参考资料-工作流程指导.md
+/原始需求.md

@@ -1,0 +1,19 @@
+{
+  "name": "feixiang-classroom-demo",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "老师一句话 -> 选择 Skill -> 生成可操作课件（可解释、可验证、可定位）",
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "verify": "tsc --noEmit && vitest run"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^5.1.0"
+  }
+}
