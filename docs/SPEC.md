@@ -53,6 +53,11 @@
 
 ## 4. API
 
+### `GET /api/health`
+
+骨架自检接口，同时证明「页面与 API 同源」。返回 `{ ok, service, contractVersion, uptimeSec, now }`，
+其中 `contractVersion` 取自 `src/contracts`，不硬编码。
+
 ### `POST /api/generate`
 
 请求
@@ -165,8 +170,9 @@ L4.behavior.slider-updates-plot  L4.behavior.exercise-answerable
 ```bash
 npm ci          # 按 package-lock.json 安装
 npm test        # 契约测试 + 单测 + 行为测试
-npm run build   # 构建前端产物
-npm run dev     # 本地启动（单端口）
+npm run build   # 构建前端产物到 dist/web
+npm run dev     # 本地启动（单端口，页面 + API）
+npm start       # 生产模式托管 dist/web（需先 build）
 ```
 
 环境：Node >= 20.19。默认离线可运行，**不需要任何 API Key**。
