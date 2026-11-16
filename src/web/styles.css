@@ -213,6 +213,11 @@ code {
   background: #f0f6ff;
 }
 
+.chip--active {
+  border-color: #d4a72c;
+  background: #fff8e5;
+}
+
 .chip:disabled {
   cursor: not-allowed;
   opacity: 0.6;

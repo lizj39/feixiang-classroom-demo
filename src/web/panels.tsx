@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 三个面板。刻意拆成独立组件而不是塞进 App：
  *  - 每个面板的 data-testid 是验收判据，单独成文件更容易定位；
  *  - 中间的「产物」与右边的「证据」职责不同：产物给人看结果，证据给人看理由。
@@ -8,6 +8,8 @@
  */
 
 import type { RefObject } from 'react';
+
+import type { BugMode } from '../contracts/index';
 
 import {
   MAX_UTTERANCE_LENGTH,
@@ -23,11 +25,21 @@ import type { Phase } from './phase';
 interface RequestPanelProps {
   readonly utterance: string;
   readonly disabled: boolean;
+  readonly bugMode: BugMode | null;
+  readonly onBugModeChange: (mode: BugMode | null) => void;
   readonly onChange: (value: string) => void;
   readonly onSubmit: () => void;
 }
 
-export function RequestPanel({ utterance, disabled, onChange, onSubmit }: RequestPanelProps) {
+/** 故障演示选项。做成页面按钮而不是让人改 URL —— 演示时少一次手抖的机会。 */
+const BUG_OPTIONS: ReadonlyArray<{ value: BugMode | null; hint: string }> = [
+  { value: null, hint: '四层全绿' },
+  { value: 'drop-node', hint: '编排丢滑块 → L1' },
+  { value: 'break-binding', hint: '绑定悬空 → L2' },
+  { value: 'unregistered-renderer', hint: '渲染器缺项 → L3' },
+];
+
+export function RequestPanel({ utterance, disabled, bugMode, onBugModeChange, onChange, onSubmit }: RequestPanelProps) {
   const length = utterance.trim().length;
 
   return (
@@ -52,6 +64,25 @@ export function RequestPanel({ utterance, disabled, onChange, onSubmit }: Reques
         <button className="button" type="button" data-testid="generate-button" onClick={onSubmit} disabled={disabled}>
           {disabled ? '生成中…' : '生成课件'}
         </button>
+      </div>
+
+      <div className="scenarios">
+        <h3 className="panel__subtitle">故障演示（第 2 问）</h3>
+        <div className="scenario-list">
+          {BUG_OPTIONS.map((option) => (
+            <button
+              key={option.value ?? 'none'}
+              type="button"
+              className={bugMode === option.value ? 'chip chip--active' : 'chip'}
+              data-testid={`bug-${option.value ?? 'none'}`}
+              onClick={() => onBugModeChange(option.value)}
+            >
+              <span className="chip__id">{option.value === null ? '●' : '⚠'}</span>
+              <span className="chip__label">{option.value ?? '正常'}</span>
+              <span className="chip__hint">{option.hint}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="scenarios">

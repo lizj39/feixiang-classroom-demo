@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+﻿// @vitest-environment jsdom
 /**
  * P1-2 / P2 的界面验收：三栏存在、空输入不请求、点生成能观察到 loading、
  * 请求体正确且只发一次、错误以 code + message 呈现、已注册 Skill 能显示出来。
@@ -22,6 +22,8 @@ import {
   type Trace,
 } from '../../src/contracts/index';
 import { App } from '../../src/web/App';
+import { setRegistryBug } from '../../src/web/bug-mode';
+import { NODE_RENDERERS } from '../../src/web/render/registry';
 import { S2_PLAN, S3_PLAN, S4_PLAN } from '../fixtures/scenarios';
 
 const fetchMock = vi.fn();
@@ -135,6 +137,8 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  // 故障开关会改模块级注册表，用例失败时也要复原，否则后续用例全被污染
+  setRegistryBug(null);
 });
 
 function typeAndSubmit(text: string): void {
@@ -330,9 +334,26 @@ describe('验证报告（P6）', () => {
 });
 
 describe('故障注入（P7）', () => {
+  it('页面上的故障按钮可以切换模式，切回正常会复原注册表', () => {
+    mockFetch();
+    render(<App />);
+
+    fireEvent.click(screen.getByTestId('bug-unregistered-renderer'));
+    expect(screen.getByTestId('bug-banner').textContent).toContain('unregistered-renderer');
+    expect(window.location.search).toContain('bug=unregistered-renderer');
+    // 纯前端故障：注册表里确实少了 slider
+    expect(Object.keys(NODE_RENDERERS)).not.toContain('slider');
+
+    fireEvent.click(screen.getByTestId('bug-none'));
+    expect(screen.queryByTestId('bug-banner')).toBeNull();
+    expect(window.location.search).not.toContain('bug=');
+    // 关掉开关必须真的复原，否则页面会一直缺滑块
+    expect(Object.keys(NODE_RENDERERS)).toContain('slider');
+  });
+
   it('开启故障时显示横幅，并把 flags 上送服务端', async () => {
     mockFetch({ generate: async () => jsonResponse(SUCCESS_PAYLOAD) });
-    render(<App bugMode="drop-node" />);
+    render(<App initialBugMode="drop-node" />);
 
     expect(screen.getByTestId('bug-banner').textContent).toContain('drop-node');
 
@@ -348,7 +369,7 @@ describe('故障注入（P7）', () => {
 
   it('纯前端故障不上送（否则服务端 trace 会被无关 flags 干扰）', async () => {
     mockFetch({ generate: async () => jsonResponse(SUCCESS_PAYLOAD) });
-    render(<App bugMode="unregistered-renderer" />);
+    render(<App initialBugMode="unregistered-renderer" />);
 
     typeAndSubmit('画个图');
     await screen.findByTestId('receipt');

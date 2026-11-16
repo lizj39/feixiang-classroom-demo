@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 页面骨架：标题条 + 三栏。
  *
  * 三栏是定下来的信息架构，后续阶段只往里面填内容，不再改布局：
@@ -12,18 +12,24 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { CONTRACT_VERSION, type BugMode, type SkillManifest } from '../contracts/index';
+import { readBugMode, setRegistryBug } from './bug-mode';
 import { ApiRequestError, requestGenerate, requestSkills } from './api';
 import { EvidencePanel, PreviewPanel, RequestPanel } from './panels';
 import { isBusy, type Phase } from './phase';
 import { useVerification } from './verify/useVerification';
 
-export function App({ bugMode = null }: { readonly bugMode?: BugMode | null }) {
+export function App({ initialBugMode }: { readonly initialBugMode?: BugMode | null } = {}) {
   const [utterance, setUtterance] = useState('');
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' });
   // null = 加载中；[] = 加载失败（不阻塞生成流程，只是这块证据缺失）
   const [skills, setSkills] = useState<readonly SkillManifest[] | null>(null);
 
   const coursewareRef = useRef<HTMLDivElement | null>(null);
+
+  // 故障模式：从 URL 初始化，之后由页面上的按钮切换（同时也同步回 URL）
+  const [bugMode, setBugMode] = useState<BugMode | null>(
+    () => initialBugMode ?? readBugMode(window.location.search),
+  );
 
   const busy = isBusy(phase);
   const courseware = phase.kind === 'success' ? phase.response.courseware : null;
@@ -43,6 +49,20 @@ export function App({ bugMode = null }: { readonly bugMode?: BugMode | null }) {
       cancelled = true;
     };
   }, []);
+
+  const changeBugMode = (next: BugMode | null): void => {
+    // 先改注册表再 setState：渲染发生在 setState 之后，顺序反了会画出上一帧的样子
+    setRegistryBug(next);
+    setBugMode(next);
+
+    const url = new URL(window.location.href);
+    if (next === null) url.searchParams.delete('bug');
+    else url.searchParams.set('bug', next);
+    window.history.replaceState(null, '', url.toString());
+
+    // 旧结果是旧模式下产生的，切换后作废，避免自己骗自己
+    setPhase({ kind: 'idle' });
+  };
 
   const submit = async () => {
     const trimmed = utterance.trim();
@@ -112,6 +132,8 @@ export function App({ bugMode = null }: { readonly bugMode?: BugMode | null }) {
         <RequestPanel
           utterance={utterance}
           disabled={busy}
+          bugMode={bugMode}
+          onBugModeChange={changeBugMode}
           onChange={setUtterance}
           onSubmit={() => {
             void submit();
